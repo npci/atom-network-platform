@@ -1,0 +1,31 @@
+# Canonical -> vendored destinations for the shared A2A wire code (QUAL-4).
+#
+# Format: <file-in-a2a_common/>  <dest-dir> [<dest-dir> ...]
+# Blank lines and #-comments ignored. Read by BOTH scripts/ci/sync-a2a-core.sh
+# and scripts/ci/hygiene-check.sh — keep it the single list.
+#
+# Only files that are ALREADY byte-identical across their consumers belong here.
+# A file that legitimately differs per service (client.py, mount.py, the
+# authority_*/partner_*/sdk_* modules) is NOT shared code and must not be added.
+#
+# SCOPE: destinations in THIS repository only. The partner platform keeps its own
+# copies in its own repository  and
+# validates them with its own CI. Nothing here can see or check those copies, so
+# hmac_signer.py staying byte-identical across the A2A trust boundary is a
+# release-coordination responsibility — see CONTRIBUTING.md.
+
+# certagent/{cert-agent,bank-agent} were destinations before the certification
+# stacks moved to the oss-a2a-platform repository. Listing a path that does not
+# exist here makes sync-a2a-core.sh abort before it reaches protocol.py, so the
+# gate silently stopped covering the other two files. Re-add them only alongside
+# the trees themselves.
+hmac_signer.py    backend/app/a2a_common
+protocol.py       backend/app/a2a_common
+executor_base.py  backend/app/a2a_common
+
+# The integration-testing tunnel's contract and alias allowlist. Vendored for
+# the same reason as the three above: both platforms must agree byte-for-byte,
+# and the allowlist is the SSRF control on that tunnel — a copy that drifts
+# reopens the hole on one side only.
+integration_contract.py   backend/app/a2a_common
+integration_allowlist.py  backend/app/a2a_common

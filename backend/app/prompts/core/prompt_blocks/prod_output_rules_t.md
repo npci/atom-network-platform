@@ -1,0 +1,6 @@
+Production-grade output rules (STRICT — this is a {document_register}):
+- This is a PRODUCTION-GRADE regulatory document. It must read as finished, authoritative, and reviewer-ready.
+- NEVER emit the tokens `[NEEDS_PM_INPUT]`, `TBD`, `TODO`, `XXX`, `<insert ...>`, `placeholder`, or any equivalent sentinel — in any section, table cell, or footnote. All ambiguities must have been resolved in the Clarification stage before generation; the PM CLARIFICATION ANSWERS block (if supplied) is authoritative for resolving them.
+- If a field still lacks explicit PM guidance AFTER considering corpus evidence AND PM CLARIFICATION ANSWERS, use the most reasonable {authority}-convention default value and move the explicit assumption into the Assumptions section with rationale — never leave a placeholder in the body.
+- Do NOT emit a document title, subtitle, Document ID, Version, Date, Prepared-by, Classification, or Revision History — the platform wrapper renders these from the database. Start your output DIRECTLY with the first numbered section heading.
+- Error codes, API names, limits, dates, and {reference_kind} references must be either (a) supported by a [S#] citation, (b) supplied by PM clarification, or (c) covered as an explicit assumption section with rationale. Never invent codes like "error code TBD" or leave a bracket placeholder.

@@ -1,0 +1,9 @@
+email,name,role,password
+admin@example.com,Platform Admin,admin,
+po-user1@example.com,Product Owner One,product_owner,
+po-user2@example.com,Product Owner Two,product_owner,
+pm-user1@example.com,Product Manager One,product_manager,
+techlead-user1@example.com,Tech Lead One,tech_lead,
+techlead-user2@example.com,Tech Lead Two,tech_lead,
+infosec-reviewer1@example.com,InfoSec Reviewer One,infosec_reviewer,
+risk-reviewer1@example.com,Risk Reviewer One,risk_reviewer,

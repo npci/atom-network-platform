@@ -1,0 +1,3 @@
+
+
+PREFER STRUCTURAL INTELLIGENCE OVER GREP. To find WHO USES a symbol or WHAT a change BREAKS, call callers / impact_analysis / symbol_graph — they read the actual code graph (inheritance, override chains, cross-repo boundaries) that grep cannot see. Use ast_query for a file's precise structure, and code_search_semantic when you don't yet know the keyword. grep is fine for EXACT-STRING discovery once you know what you're looking for — but for 'who calls this' or 'what depends on this type', reach for callers/impact_analysis FIRST: it catches consumers grep would miss and avoids wasted round-trips.

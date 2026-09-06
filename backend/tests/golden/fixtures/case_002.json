@@ -1,0 +1,42 @@
+{
+  "case_id": "case_002",
+  "doc_type": "xsd",
+  "title": "Partial refund against a completed payment",
+  "prompt": "Support a partial refund against an already-completed payment: the refund carries a reference to the original transaction, a refund amount that may be less than the original, and a reason code.",
+  "note": "The INPUTS are synthetic — an invented feature, no real change request, no customer or institution data — so this fixture is safe to publish. The GOLDEN is a real capture from the xsd agent (see generation.model_pinned).",
+  "domain_terms": [
+    "minOccurs",
+    "backward",
+    [
+      "complexType",
+      "simpleType",
+      "element"
+    ],
+    [
+      "reason code",
+      "reasonCode"
+    ],
+    [
+      "original transaction",
+      "originalTxn",
+      "original payment"
+    ]
+  ],
+  "thresholds": {
+    "structural_min": 0.95,
+    "floor_note": "First accepted capture (2026-08-12) scored 1.000 — section_coverage 1.0 over 6 sections, specificity 1.0 over all 5 terms, no deterministic findings. Floor set to 0.95, NOT 1.000: it is applied to FUTURE captures whose wording will vary, so pinning it at the observed score would fail on drift rather than on quality loss. Ratchet upward only with evidence (--raise-floor)."
+  },
+  "generation": {
+    "artifact": "xsd",
+    "model_pinned": "claude (LLM_PROVIDER=claude; per-agent model via app/core/llm_router.py)",
+    "inputs": {
+      "brd": "## Business Requirement — Partial refund\n\nMerchants must be able to refund part of a completed payment rather than the whole amount. Today a refund is all-or-nothing, so a merchant settling a disputed line item has to reverse the entire order and re-collect the remainder, which produces two extra transactions and a poor customer experience.\n\n**Scope.** A refund request must identify the original payment, carry the amount being refunded, and state why. Multiple partial refunds against the same original payment are permitted provided their sum does not exceed the original amount. A refund is terminal once accepted.\n\n**Out of scope.** Refunds across different payment instruments, and refunds of a payment that has not reached a completed state.\n\n**Compatibility.** Existing full-refund senders must continue to work unchanged; they are not required to send any new field.",
+      "tech_spec": "## Technical Specification — Partial refund\n\n### Message changes\n\nThe refund request gains three pieces of information:\n\n1. `originalTxnId` — the identifier of the completed payment being refunded. Required for a partial refund.\n2. `refundAmount` — the amount to refund. When absent, the receiver treats the request as a full refund, preserving today's behaviour for existing senders.\n3. `reasonCode` — an enumerated reason for the refund, drawn from a fixed list (`DISPUTED_ITEM`, `GOODS_NOT_RECEIVED`, `PRICE_ADJUSTMENT`, `OTHER`).\n\n### Validation\n\nThe receiver rejects a refund whose `refundAmount` exceeds the unrefunded remainder of the original payment, and rejects a `reasonCode` outside the enumerated list.\n\n### Compatibility\n\nAll three fields are optional on the wire so that a sender built against the current schema remains valid. A partial refund is distinguished from a full refund by the presence of `refundAmount`.\n\n### Persistence\n\nEach accepted refund is recorded against the original payment so the remaining refundable balance can be computed."
+    }
+  },
+  "judge": {
+    "model_pinned": "<TODO: pin the judge model before recording semantic floors>",
+    "semantic_min": null
+  },
+  "terms_note": "Terms were chosen BEFORE the capture, from what the inputs demand of any competent assessment: an optionality mechanism (minOccurs), an explicit backward-compatibility statement, a schema construct, and the two new business fields. Choosing them afterwards would tune the metric to the output and measure nothing."
+}

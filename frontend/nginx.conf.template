@@ -1,0 +1,59 @@
+# RECONSTRUCTED — this trimmed checkout ships without this file . Rebuilt from first principles by reading
+# docker-entrypoint.sh (only $CONTEXT_PATH is envsubst'd — every other $var
+# below is a literal nginx variable and must survive untouched) and the outer
+# nginx.dev.conf.template, whose `location /${NPCI_CONTEXT}/ { proxy_pass
+# http://npci_frontend; }` has NO rewrite and NO URI on proxy_pass — so the
+# full `/a2a/...` path arrives here unchanged, and this config must serve
+# static files rooted at that same prefix.
+server {
+    listen 80;
+    server_tokens off;
+
+    location = / {
+        return 302 /$CONTEXT_PATH/;
+    }
+
+    # `alias` (not `root`) strips the location prefix from the filesystem
+    # path: a request for /$CONTEXT_PATH/assets/x.js resolves to
+    # /usr/share/nginx/html/assets/x.js. try_files falls back to index.html
+    # for client-side (React Router) routes.
+    location /$CONTEXT_PATH/ {
+        alias /usr/share/nginx/html/;
+        try_files $uri $uri/ /$CONTEXT_PATH/index.html;
+
+        # Anchor relative asset URLs at the public prefix.
+        #
+        # index.html references its assets RELATIVELY ("./assets/x.js") and
+        # Vite emits no <base> tag. Served at /$CONTEXT_PATH/ those resolve
+        # correctly, but a refresh on a deep link — /$CONTEXT_PATH/changes/123
+        # — resolves them against the DIRECTORY of that URL, i.e.
+        # /$CONTEXT_PATH/changes/assets/x.js.
+        #
+        # THAT REQUEST RETURNS 200, NOT 404: the try_files SPA fallback above
+        # answers it with index.html. So the browser asks for JavaScript, is
+        # handed HTML with a 200, the module fails to parse, and the page is
+        # blank with nothing red in the Network tab. Check content type, not
+        # status, when verifying this:
+        #     curl -so /dev/null -w '%{http_code} %{content_type}\n' \
+        #          http://host/$CONTEXT_PATH/deep/link/assets/<bundle>.js
+        # must report application/javascript, never text/html.
+        #
+        # frontend/src/utils/basePath.js reads this exact tag and falls back to
+        # a hardcoded '/a2a/' when it is absent — which is why a wrong
+        # CONTEXT_PATH fails quietly rather than loudly.
+        #
+        # THIS BELONGS HERE, IN THE IMAGE, not in the outer proxy. It lived in
+        # nginx/nginx.dev.conf.template, which fixed the deployed stack and left
+        # this image serving a blank page to anyone running it directly. Do not
+        # reinstate it there — two sub_filters produce two <base> tags.
+        #
+        # No `proxy_set_header Accept-Encoding ""` is needed at this hop: these
+        # bytes come off disk, not from an upstream. An nginx that PROXIES this
+        # response and wants to rewrite it does need it — sub_filter cannot
+        # touch a gzipped body and passes it through unmodified, so the fix
+        # looks applied and does nothing.
+        sub_filter '<head>' '<head><base href="/$CONTEXT_PATH/">';
+        sub_filter_once on;
+        sub_filter_types text/html;
+    }
+}

@@ -1,0 +1,102 @@
+# gitleaks configuration.
+#
+# WHY THIS FILE EXISTS, beyond turning the scanner on:
+#
+# This platform MINTS ITS OWN credential format. `models/phase_c.py:370` issues
+# partner API keys as `f"a2a_{secrets.token_urlsafe(32)}"`. Stock gitleaks ships
+# rules for known vendor prefixes (glpat-, sk-ant-, AKIA…) and cannot know about
+# a prefix a project invents, so a leaked partner key would pass a default scan
+# silently. That is the false-assurance case this config exists to close.
+#
+# When you add a new credential format, add a rule here in the same commit.
+
+title = "atom-network-platform secret scan"
+
+[extend]
+useDefault = true
+
+# ── Project-minted credential formats ────────────────────────────────────────
+
+[[rules]]
+id = "a2a-partner-api-key"
+description = "A2A partner API key (models/phase_c.py: f\"a2a_{secrets.token_urlsafe(32)}\")"
+# token_urlsafe(32) is 43 chars of [A-Za-z0-9_-]. Require 40+ so the literal
+# prefix in prose ("keys look like a2a_…") does not trip the gate.
+regex = '''a2a_[A-Za-z0-9_\-]{40,}'''
+keywords = ["a2a_"]
+
+[[rules]]
+id = "anthropic-key-with-body"
+description = "Anthropic API key with a realistic body"
+# Not the bare prefix: docs and config UIs legitimately show `sk-ant-api03-...`
+# as a placeholder. The body length is what distinguishes a real key.
+regex = '''sk-ant-api03-[A-Za-z0-9_\-]{20,}'''
+keywords = ["sk-ant-api03-"]
+
+# ── Allowlist ────────────────────────────────────────────────────────────────
+
+[allowlist]
+description = "Known-safe matches, each justified. Do not add entries without a reason."
+
+paths = [
+  # Local environment files. These hold REAL secrets — which is exactly why they
+  # are gitignored and can never be committed. `gitleaks --no-git` scans the
+  # FILESYSTEM, so without this every developer with a working .env gets a red
+  # gate on a file git will never see. A gate that is red by default is a gate
+  # people learn to ignore.
+  #
+  # This does NOT weaken the check: a .env that is actually TRACKED is caught by
+  # scripts/ci/hygiene-check.sh, which greps git's index rather than the working
+  # tree. That is the real risk, and it stays hard-failed.
+  '''(^|/)\.env$''',
+  '''(^|/)\.env\..*''',
+
+  # Python bytecode. Compiled test modules embed their own string constants, so
+  # a fixture token allowlisted below reappears here as an opaque binary match
+  # that no regex can sensibly target. CI checks out clean and never has these;
+  # this is purely so a local run after `pytest` is not red for no reason.
+  '''__pycache__/.*''',
+  '''\.pyc$''',
+]
+
+regexes = [
+  # Python identifiers beginning `a2a_`, e.g.
+  # `test_a2a_rejects_a_message_kind_the_transport_cannot_carry` or the setting
+  # `a2a_require_hmac_for_active_partners_disabled_in_production`. These are 40+
+  # characters of [a-z_] and so match the a2a-partner-api-key length rule.
+  #
+  # Safe because a minted key is `secrets.token_urlsafe(32)` — 43 characters
+  # from a 64-symbol alphabet. The chance of one being ALL lowercase and
+  # underscores is (27/64)^43, about 1e-16. RE2 has no lookahead, so "must
+  # contain an uppercase or a digit" cannot be expressed in the rule itself;
+  # excluding the all-lowercase case here is the equivalent.
+  #
+  # The alternative was renaming symbols to suit the scanner, which is the wrong
+  # direction: it contorts code to fit a rule that is simply too loose.
+  '''a2a_[a-z_]{40,}''',
+
+  # Deliberately fake GitLab tokens in the tests that exercise credential
+  # scrubbing and log redaction — the files whose whole job is to contain
+  # secret-shaped strings and prove they get scrubbed:
+  #   tests/agents/test_workspace_secret_scrub.py  (T10, THREAT_MODEL.md)
+  #   tests/core/test_audit_log_secrets.py
+  #   tests/agents/test_agentic_state.py
+  # Listed by value rather than by path so a REAL token pasted into one of those
+  # files would still fail the gate.
+  #
+  # Anchored on the distinctive PREFIX of each fixture, not the full literal:
+  # gitleaks' stock gitlab-pat rule captures exactly `glpat-` + 20 chars, so it
+  # reports `glpat-SECRETTOKEN123456789` for a source value of
+  # `glpat-SECRETTOKEN1234567890abc`. An allowlist written against the source
+  # text silently never matches — which is how these four findings survived the
+  # first version of this file.
+  '''glpat-abc123def456''',
+  '''glpat-abcdefghij[0-9]+''',
+  '''glpat-SECRETTOKEN[0-9]+''',
+  '''glpat-shouldbeskipped[0-9]+''',
+  '''glpat-SuperSecretValue[0-9]+''',
+
+  # Documented placeholders in setup guides and the config UI.
+  '''glpat-(your-token|\.\.\.)''',
+  '''sk-ant-api03-\.\.\.''',
+]

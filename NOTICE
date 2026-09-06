@@ -1,0 +1,212 @@
+AtOM
+Copyright 2026 National Payments Corporation of India
+
+This product is licensed under the MIT License. See the LICENSE file for the
+full text.
+
+THIS FILE IS NOT REQUIRED BY THE MIT LICENSE, AND IS KEPT ANYWAY.
+
+Under Apache-2.0, section 4(d) obliged every redistributor to propagate this
+file. The MIT License has no equivalent mechanism, so nothing compels a
+downstream user to carry it. It is retained because section 2 below is how
+this project discharges the attribution its OWN DEPENDENCIES require: MIT and
+BSD licensed packages each require their copyright and permission notices to
+travel with the code, and this is where that is done. Deleting it would leave
+those obligations unmet.
+
+================================================================================
+                            THIRD-PARTY NOTICES
+================================================================================
+
+This file lists third-party software that AtOM depends on, bundles,
+or redistributes, together with the licences that govern each item.
+
+Scope and method
+----------------
+Licence identifiers below were taken from package metadata (Python distribution
+metadata and npm registry `license` fields) and from licence files committed to
+this repository. Where a package publishes a dual or compound licence, the full
+expression is reproduced rather than simplified.
+
+AtOM links to almost all of its dependencies as unmodified libraries
+resolved at install time; it does not vendor their source. Full licence texts
+ship inside each package's own distribution. For the items this repository
+physically redistributes, the licence text is committed alongside the files and
+the path is given below.
+
+This notice covers direct dependencies. Package managers resolve additional
+transitive packages whose licences are recorded in the resulting lockfile or
+site-packages tree; generate a full inventory from an installed environment when
+you need a complete, deployment-specific bill of materials.
+
+--------------------------------------------------------------------------------
+1. COPYLEFT AND RECIPROCAL LICENCES — READ BEFORE DISTRIBUTING
+--------------------------------------------------------------------------------
+
+1.1 LGPL libraries — dynamically linked, unmodified
+
+    These are used as unmodified libraries. The LGPL's reciprocal duties attach
+    to the libraries themselves, not to AtOM's own source, and are
+    satisfied so long as you continue to supply the library source (or a written
+    offer for it) and permit users to substitute a modified library version.
+
+    | Package         | Licence                                    | Source                                  |
+    |-----------------|--------------------------------------------|-----------------------------------------|
+    | ldap3           | LGPL-3.0                                   | https://github.com/cannatag/ldap3       |
+    | psycopg2-binary | LGPL-3.0-or-later with OpenSSL exceptions  | https://github.com/psycopg/psycopg2     |
+
+    Caution for single-file or statically linked builds: bundling these into a
+    frozen binary can trigger the LGPL relinking obligation. Standard container
+    and virtualenv deployments, which keep the libraries as separate importable
+    modules, do not.
+
+1.2 Mozilla Public Licence components
+
+    | Package | Licence expression                  | Notes                                                             |
+    |---------|-------------------------------------|-------------------------------------------------------------------|
+    | orjson  | MPL-2.0 AND (Apache-2.0 OR MIT)     | File-level copyleft. Unmodified use imposes no duty on AtOM code. |
+
+--------------------------------------------------------------------------------
+2. DEPENDENCIES REQUIRING ATTRIBUTION
+--------------------------------------------------------------------------------
+
+These dependencies carry attribution notices that must be preserved in
+redistributions. Apache-2.0 section 4(d) requires it of the Apache-licensed
+ones; the MIT and BSD licensed packages require their copyright and permission
+notices to travel in the same way. Their copyright and NOTICE content is
+retained inside each installed package.
+
+Python
+    bcrypt                      https://github.com/pyca/bcrypt
+    docker                      https://github.com/docker/docker-py
+    openai                      https://github.com/openai/openai-python
+    requests                    https://github.com/psf/requests
+    sentence-transformers       https://github.com/UKPLab/sentence-transformers
+    tokenizers                  https://github.com/huggingface/tokenizers
+
+JavaScript / Node
+    playwright                  https://github.com/microsoft/playwright
+
+Compound expressions
+    cryptography                Apache-2.0 OR BSD-3-Clause
+    structlog                   MIT OR Apache-2.0
+
+--------------------------------------------------------------------------------
+3. PERMISSIVE DEPENDENCIES
+--------------------------------------------------------------------------------
+
+The following are used unmodified under permissive terms. Attribution is
+provided here; their full licence texts ship with each package.
+
+3.1 Python — web, API, and runtime
+
+    fastapi              MIT          |  uvicorn            BSD-3-Clause
+    starlette            BSD-3-Clause |  gunicorn           MIT
+    pydantic             MIT          |  pydantic-settings  MIT
+    anyio                MIT          |  httpx              BSD-3-Clause
+    python-dotenv        BSD-3-Clause
+
+3.2 Python — auth and cryptography
+
+    PyJWT                MIT          |  passlib            BSD
+    cryptography         Apache-2.0 OR BSD-3-Clause
+    defusedxml           PSF-2.0
+
+3.3 Python — persistence, queues, scheduling
+
+    SQLAlchemy           MIT          |  redis (redis-py)   MIT
+    alembic              MIT          |  celery             BSD-3-Clause
+    pgvector             MIT
+
+3.4 Python — machine learning and numerics
+
+    sentence-transformers Apache-2.0  |  torch (PyTorch)    BSD-3-Clause
+    scikit-learn         BSD-3-Clause |  numpy              BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0
+
+    Model-provider client SDKs: anthropic (MIT), openai (Apache-2.0).
+    These are API clients only — no provider-authored content is
+    redistributed with this project.
+
+    torch (PyTorch) is BSD-3-Clause, but its wheel ships a substantial NOTICE
+    covering bundled third-party components under Apache-2.0, BSD, and MIT
+    terms. Preserve torch's own LICENSE and NOTICE files when redistributing an
+    environment that contains it; they are the authoritative attribution for
+    everything vendored inside that wheel.
+
+3.5 Python — parsing, documents, and reporting
+
+    lxml                 BSD-3-Clause |  PyYAML              MIT
+    pypdf                BSD-3-Clause |  python-docx         MIT
+    python-pptx          MIT          |  openpyxl            MIT
+    Pillow               MIT-CMU (HPND)
+
+    Source-analysis grammars, all MIT:
+    tree-sitter, tree-sitter-java, tree-sitter-python, tree-sitter-typescript
+
+3.6 Python — protocol, observability, and tooling
+
+    pytest               MIT          |  pytest-asyncio     Apache-2.0
+
+3.7 JavaScript — frontend
+
+    react, react-dom     MIT          |  react-router-dom   MIT
+    mermaid              MIT          |  zustand            MIT
+    tailwindcss          MIT          |  vite               MIT
+    vitest               MIT          |  eslint             MIT
+
+3.8 A2A protocol SDK
+
+    a2a-sdk              Apache-2.0   |  culsans            MIT
+    sse-starlette        MIT          |  asyncpg            Apache-2.0
+
+--------------------------------------------------------------------------------
+4. CONTAINER IMAGES AND SANDBOX TOOLING
+--------------------------------------------------------------------------------
+
+Container images built from this repository install additional software from
+operating-system and language package repositories. That software is governed by
+its own licences and is not covered by the MIT grant over AtOM
+source. It matters because distributing a built image is distributing those
+components.
+
+4.1 Application image (Dockerfile)
+
+    | Component            | Licence          | Role                            |
+    |----------------------|------------------|---------------------------------|
+    | python:3.12-slim     | PSF-2.0 + Debian | Base image                      |
+    | libpq5               | PostgreSQL       | PostgreSQL client library       |
+    | curl                 | curl (MIT-like)  | Health checks                   |
+
+4.2 Images pulled at runtime (docker-compose.yml)
+
+    Referenced by digest or tag and never rebuilt or redistributed here:
+    pgvector/pgvector:pg16 (PostgreSQL), redis:7-alpine (RSALv2/SSPL for Redis
+    7.4+), ollama/ollama:latest (MIT).
+
+--------------------------------------------------------------------------------
+5. TRADEMARKS
+--------------------------------------------------------------------------------
+
+The MIT License grants copyright permissions only. It says nothing about
+patents and nothing about trademarks, so no trademark rights are conveyed
+with this software.
+Product and company names referenced here — including NPCI, OpenAI, Google,
+Microsoft, PostgreSQL, Redis, and Docker — are trademarks of their respective
+owners. Their use in this file is nominative, identifying the software
+concerned, and implies no affiliation or endorsement.
+
+--------------------------------------------------------------------------------
+6. REPORTING ATTRIBUTION ISSUES
+--------------------------------------------------------------------------------
+
+If you find a missing, incorrect, or outdated attribution, please open an issue
+or a pull request. See SECURITY.md for reporting anything with a security
+dimension, and CONTRIBUTING.md for the DCO sign-off requirement.
+
+Regenerating the inventory: licence facts in this file were read from installed
+package metadata and the npm registry. To reproduce for a specific deployment:
+
+    pip install pip-licenses && pip-licenses --format=markdown --with-urls
+    npx license-checker --production --summary   # run per package.json
+
+Last reviewed: 2026-08-22

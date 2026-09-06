@@ -1,0 +1,43 @@
+# CODEOWNERS — AtOM
+#
+# Defines code ownership for critical paths in the repository.
+# GitHub automatically requests reviews from the listed owners
+# when a pull request touches matching files.
+#
+# Syntax:  <pattern>  <@owner-or-team> [<@owner-or-team> ...]
+#
+# Reference:
+#   GitHub  — https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# ── Default owner (catches everything not matched below) ──────────────────────
+*                               @npci/atom-maintainers
+
+# ── Governance & legal ────────────────────────────────────────────────────────
+LICENSE                         @npci/atom-maintainers
+NOTICE                          @npci/atom-maintainers
+SECURITY.md                     @npci/atom-maintainers
+CODE_OF_CONDUCT.md              @npci/atom-maintainers
+CONTRIBUTING.md                 @npci/atom-maintainers
+CODEOWNERS                      @npci/atom-maintainers
+
+# ── Documentation ─────────────────────────────────────────────────────────────
+docs/                           @npci/atom-maintainers
+README.md                       @npci/atom-maintainers
+
+# ── Core platform (backend) ───────────────────────────────────────────────────
+backend/app/core/               @npci/atom-maintainers
+backend/app/api/                @npci/atom-maintainers
+backend/app/models/             @npci/atom-maintainers
+
+# ── A2A protocol & partner integration ────────────────────────────────────────
+backend/app/a2a_common/         @npci/atom-maintainers
+backend/app/services/a2a_client.py @npci/atom-maintainers
+
+# ── Agentic pipeline ──────────────────────────────────────────────────────────
+backend/app/agents/             @npci/atom-maintainers
+backend/app/rag/                @npci/atom-maintainers
+
+# ── Frontend ──────────────────────────────────────────────────────────────────
+frontend/src/                   @npci/atom-maintainers
+
+# ── Certification agent ───────────────────────────────────────────────────────

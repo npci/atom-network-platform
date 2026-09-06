@@ -1,0 +1,420 @@
+# Web framework
+fastapi==0.141.1
+uvicorn[standard]==0.32.1
+gunicorn==23.0.0
+
+# Database
+sqlalchemy==2.0.36
+alembic==1.14.0
+psycopg2-binary==2.9.10
+pgvector==0.2.5
+
+# Auth
+# JWT: PyJWT, NOT python-jose. python-jose was REPLACED (2026-08-20) because it
+# declares `ecdsa` as an unconditional core dependency, and ecdsa 0.19.2 carries
+# CVE-2024-23342 (HIGH — Minerva timing attack on P-256) for which NO FIX WILL
+# EVER EXIST: the maintainers consider side-channel resistance out of scope for
+# a pure-Python implementation. No pin could clear it, so the library had to go.
+#
+# PyJWT has ZERO required dependencies (cryptography sits behind a [crypto]
+# extra we do not request) and no ecdsa anywhere, so this removes the finding
+# from SCA scans structurally rather than suppressing it. Every JWT on this
+# platform is HS256 — symmetric, stdlib hmac — so no asymmetric backend is
+# needed at all; see ALGORITHM in app/core/security.py and app/core/mfa.py.
+#
+# Pinned 2.13.0, not the 2.10.1 originally proposed: 2.10.1 carries 13 OSV
+# advisories including two HIGH (CVE-2026-32597 unknown `crit` header, fixed
+# 2.12.0; CVE-2026-48526 public-key-JWK-as-HMAC-secret, fixed 2.13.0). 2.13.0 is
+# the first release that queries CLEAN, so it was pointless to migrate onto a
+# version that reintroduced worse findings than the one being removed.
+#
+# API divergence handled: python-jose's `jwt.get_unverified_claims(token)` has
+# no PyJWT equivalent; it is spelled `jwt.decode(token,
+# options={"verify_signature": False})`. One call site,
+# app/a2a_common/sdk_hmac_middleware.py. Everything else is source-compatible:
+# encode/decode signatures match, every decode already passes
+# algorithms=["HS256"], and `JWTError` becomes `PyJWTError`.
+PyJWT==2.13.0
+# Direct dep: Fernet encryption for secrets stored in the app_configs table.
+# Historically this arrived via python-jose's [cryptography] extra and was
+# promoted to a direct pin; with python-jose now gone (see above) this pin is
+# the ONLY thing installing cryptography, so do not remove it. PyJWT does not
+# need it — the [crypto] extra is for RS*/ES* algorithms and this platform is
+# HS256-only — but app/core/app_config_sync.py and app/core/mfa.py both import
+# `cryptography.fernet` directly.
+cryptography==50.0.0
+# pyasn1 floor. Formerly held at 0.4.8 by python-jose 3.4.0's `pyasn1<0.5.0`
+# bound, which carried four HIGH DoS advisories (CVE-2026-59884/59885/59886,
+# CVE-2026-30922). python-jose is gone entirely now, so the only remaining
+# consumers are ldap3 (`pyasn1>=0.4.6`, no upper bound) and pyasn1-modules
+# (`<0.7.0`); 0.6.4 satisfies both. Kept as an explicit pin so a future resolve
+# cannot silently fall back into the vulnerable 0.4.x line.
+pyasn1==0.6.4
+bcrypt==4.2.1
+python-multipart==0.0.31
+# Self-hosted login CAPTCHA (InfoSec mandate) — renders image challenges via
+# Pillow (already pinned below). No external service; answers live in Redis.
+captcha==0.6.0
+# TOTP MFA (InfoSec phase 2) — authenticator-app codes + QR provisioning.
+pyotp==2.10.0
+# QR rendering: segno, NOT qrcode. qrcode 8.2 was REPLACED (2026-08-28, SBOM
+# finding 1 — threat 10, the highest in the A2A compliance report) over package
+# METADATA, not behaviour. qrcode 8.2 declares BOTH
+#   Classifier: License :: OSI Approved :: BSD License
+#   Classifier: License :: Other/Proprietary License
+# while its actual LICENSE file is a plain 3-clause BSD. Scanners read
+# classifiers, so the stray "Other/Proprietary" tripped the banned-licence
+# policy. No pin could clear it — the defect is upstream metadata, so the fix
+# is structural (different package) rather than a waiver that must be re-argued
+# at every scan.
+#
+# segno declares exactly ONE licence classifier —
+#   Classifier: License :: OSI Approved :: BSD License
+# — matching the 3-clause BSD LICENSE it ships, so there is no contradiction
+# for a classifier-reading scanner to trip over. (BSD-3-Clause, not MIT as
+# first assumed; verified against the 1.6.6 wheel METADATA and its bundled
+# LICENSE on 2026-08-28. Both are permissive and on the allowed list, so the
+# finding closes either way — but the record should state the real licence.)
+# segno also has ZERO runtime dependencies on Python >= 3.10 (qrcode pulled
+# Pillow on this path).
+#
+# Output is matched to qrcode's defaults exactly — error-correction M, scale
+# 10, 4-module quiet zone, 490x490 PNG (QR version 6, 41 modules) — because
+# this renders the MFA enrolment QR and a symbol that scans differently locks
+# users out of authenticator setup. Both libraries were run side by side to
+# confirm identical geometry. See app/core/mfa.py::qr_png_b64 and the
+# dimension assertions in tests/core/test_mfa_qr.py.
+#
+# Pillow is NOT orphaned by this: it remains a direct pin below for the docgen
+# fallback diagram renderer.
+segno==1.6.6
+# Hybrid LDAP/AD auth (InfoSec phase 3) — pure-Python LDAP client (no libldap build).
+ldap3==2.9.1
+
+# Validation
+# pydantic bumped from 2.10.3 -> 2.11.10 because a2a-sdk 1.0.2 requires
+# pydantic>=2.11.3. Keep this in sync with the A2A SDK dependency set.
+pydantic==2.11.10
+pydantic-settings==2.6.1
+email-validator==2.2.0
+
+# AI / LLM
+anthropic==0.40.0
+openai==1.82.0
+langchain==1.3.9
+
+# Document processing
+# PDF text extraction uses pypdfium2 (see OCR section below) — permissive
+# licence, replaces the AGPL-licensed pymupdf which the Authority's repo disallows.
+python-docx==1.1.2
+lxml==6.1.0
+# Hardened XML parse for the API-registry XSD ingest (entity-expansion / XXE
+# defense over stdlib xml.etree). See app/services/api_registry_ingest.py.
+defusedxml==0.7.1
+pyyaml==6.0.2
+openpyxl==3.1.5
+
+# playwright REMOVED 2026-08-28 (SBOM finding 5 — CVE-2025-59288, CVSS 8.7,
+# Security-High). It was pinned here under the heading "HTML to image
+# (prototype screens)", but NOTHING IN THE PYTHON TREE EVER IMPORTED IT: a grep
+# for `from playwright`, `import playwright` and `sync_playwright` across the
+# whole repo returns zero hits. The prototype-screens feature it was added for
+# was never built.
+#
+# Its only actual function was as a DOWNLOADER for a Chromium binary that
+# mermaid-cli borrows (`playwright install chromium` in the Dockerfile, then a
+# `find`/`cp` of headless_shell into /opt/mmdc-chromium). Both the pip install
+# and the browser download are now INSIDE the `INSTALL_MERMAID=true` block in
+# backend/Dockerfile, so they happen only when their consumer is installed.
+#
+# MERMAID RENDERING IS UNAFFECTED — same Playwright version, same Chromium
+# build, same path, same puppeteer config. Playwright's browser is still used in
+# preference to Debian's apt chromium because the latter SIGTRAPs on arm64 under
+# Docker on Apple Silicon; that decision is unchanged and documented at the
+# install site. The default build (INSTALL_MERMAID=false) simply no longer ships
+# a browser automation stack that nothing calls.
+
+# PDF export
+# weasyprint REMOVED 2026-08-11 (review SEC-4). Nothing imported it: a grep of
+# /app/app inside the built image returned zero files, and the remaining "pdf"
+# hits in the tree are PDF *ingestion* (text_extraction, chunking), not
+# generation. Dropping it also drops `pyphen`, whose bare GPL-2.0 package
+# metadata was the copyleft-contamination risk against this permissively
+# licensed project, plus 2 weasyprint CVEs. The two docs that still described
+# WeasyPrint as the PDF export path (System_Architecture.md,
+# docs/SETUP_WINDOWS.md) were removed
+# on the same day; see review SEC-4.
+
+# Task queue
+celery==5.4.0
+redis==5.2.1
+# async-timeout REMOVED 2026-08-28 (SBOM finding 7 — Component-End-of-Life,
+# threat 8). The pin's own comment was the proof it was unnecessary: it read
+# "required dependency of redis 5.x ON PYTHON < 3.12", and backend/Dockerfile
+# line 1 is `FROM python:3.12-slim`. The condition was already false.
+#
+# The package is end-of-life because the standard library absorbed it —
+# `asyncio.timeout()` has been built in since Python 3.11 — so upstream
+# archived it as redundant. There is no newer version to move to and never
+# will be; the only way to clear the finding is to not install it.
+#
+# CONFIRMED NOT IN THE RUNNING IMAGE BEFORE REMOVAL, by three independent
+# checks: (1) it appears in NEITHER requirements.amd64.lock NOR
+# requirements.arm64.lock; (2) the Dockerfile installs strictly from the lock
+# (`pip install --require-hashes -r requirements.${TARGETARCH}.lock`), never
+# from this file; (3) nothing imports `async_timeout` anywhere in app/.
+# So this line was dead text that only ever reached the SBOM — which is itself
+# the signal that the SBOM was being generated from requirements.txt rather
+# than from the built artifact. See docs/sbom/README.md for that fix.
+
+# Email: none. fastapi-mail was pinned here but NEVER IMPORTED — `git grep
+# fastapi_mail -- '*.py'` returns nothing, and no module in the tree sends mail.
+# Removed 2026-08-15 (SCA Tier 3b): besides being dead weight, its
+# `starlette<1.0` bound was the single thing blocking starlette 1.x, and the
+# cascade it forced (fastapi-mail -> email-validator -> pydantic) was the stated
+# reason the starlette advisories were previously accepted rather than fixed.
+# Re-add it WITH a mail implementation if email is ever wired up.
+
+# Embeddings — via Ollama HTTP API (no local models needed)
+# sentence-transformers removed — was pulling PyTorch (~4GB)
+
+# Sparse search for hybrid retrieval (BM25 + vector RRF)
+rank-bm25==0.2.2
+
+# ── Excel Testcase Engine deps (app.excel_testcase_engine) ──────────────────
+# WHY here, not as a separate file: the engine ships inside this backend's
+# `app/` tree as a regular submodule, so its runtime deps belong in the same
+# requirements.txt the rest of the host uses. Exact pins as of SEC-3 step 3 —
+# these were loose (>=) and could resolve differently on a fresh clone.
+structlog==26.1.0     # structured logging used by every engine stage
+pypdf==6.16.1          # corpus_miner.pdf_extractor + recalc_helper formula scan
+                       # 6.16.1 floor: CVE-2026-84309 (infinite loop in
+                       # TreeObject.insert_child, fixed 6.16.0) + CVE-2026-84310
+                       # / -84311 (runtime + memory blowup on crafted outlines
+                       # and XForm text extraction, fixed 6.16.1). Reachable
+                       # from RAG upload — pypdf is the fallback parser in
+                       # app/rag/chunking.py when pypdfium2 rejects a file.
+tenacity==9.1.4       # retry policies on LLM/provider transients
+xmlschema==4.3.2      # XSD field-name validation in agents.validator
+
+# Tree-sitter AST code chunker (Slice 3 — trio now, 15 more languages as sub-slices)
+tree-sitter==0.23.2
+tree-sitter-java==0.23.5
+tree-sitter-python==0.23.6
+tree-sitter-typescript==0.23.2
+
+# Slice 23 — multilspy provides a unified async LSP client wrapping
+# language-specific servers (jedi-language-server / pylsp for Python).
+# Lazy-imported in app.rag.lsp_resolver_python; absence of the package
+# is treated as feature-disabled, not an error.
+#
+# multilspy IS NOT PINNED HERE ANY MORE — it is installed by a dedicated
+# `pip install --no-deps multilspy==0.0.15` step in backend/Dockerfile.
+# Reason: multilspy 0.0.15 declares `requests==2.32.3` as an EXACT pin, and
+# because an exact pin cannot be overridden by a floor, that single line held
+# the whole image on a requests version with two advisories (CVE-2024-47081,
+# CVE-2026-25645). multilspy's last release was 2025-04-03, so waiting for an
+# upstream fix is not a plan.
+#
+# The pin is over-restrictive rather than a real incompatibility: multilspy
+# touches exactly ONE requests API — `requests.get(url, stream=True,
+# timeout=60)` in multilspy_utils.FileUtils.download_file, used only to fetch
+# language-server archives. Verified by installing multilspy 0.0.15 against
+# requests 2.34.2 and importing the full path this repo uses (LanguageServer,
+# MultilspyConfig, MultilspyLogger, multilspy_utils): all clean.
+#
+# Its four real dependencies are all pinned independently below/elsewhere in
+# this file's closure (jedi-language-server 0.41.3, psutil, typing-extensions,
+# requests), so --no-deps drops nothing that the lock does not already carry.
+# Keep these four alive even though nothing else imports them directly — they
+# exist to satisfy multilspy:
+jedi-language-server==0.41.3
+psutil==7.2.2
+
+# ── Cross-encoder reranker — MOVED OUT OF THIS IMAGE ──────────────────────
+# torch and sentence-transformers USED TO BE PINNED HERE. They were removed on
+# 2026-08-28 and now live in `services/reranker/requirements.txt`.
+#
+# WHY. Those two packages accounted for SIX of the eighteen violations in the
+# A2A compliance SBOM (2026-08-27) — a third of the entire report:
+#   - sentence-transformers 3.3.1  CVE-2026-68770   CVSS 9.8  Security-Critical
+#   - torch 2.13.0                 CVE-2025-3121    CVSS 5.5
+#   - torch 2.13.0                 CVE-2025-3000    CVSS 5.3
+#   - torch 2.13.0                 CVE-2025-3136    CVSS 4.6
+#   - torch 2.13.0                 CVE-2025-4287    CVSS 3.3
+#   - torch 2.13.0                 CVE-2025-2149    CVSS 2.0
+#
+# The previous note in this file argued — correctly — that none of these are
+# reachable here: the model name is operator-set, `use_reranker` defaults to
+# False, and the only API touched is CrossEncoder.predict(). But that argument
+# does not clear a finding, and should not. A scanner reports what is INSTALLED,
+# and a single config flag was all that separated "dormant" from "live". Note
+# also that Sonatype still reports CVE-2025-3000 against 2.13.0 even though OSV
+# calls 2.13.0 clean — there is no version that satisfies every database, so
+# "upgrade until clean" was never a terminating strategy.
+#
+# THE RERANKER IS NOT LOST. It is worth +5-15pp recall@10 and remains fully
+# available via `RERANKER_BACKEND=remote`, pointing at the sidecar in
+# services/reranker/. That HTTP path was ALREADY implemented and already
+# production-proven (app/rag/reranker.py::_rerank_remote carries a note about
+# payload capping learned in the 2026-05-03 production run) — nothing in the
+# retrieval pipeline changed. Same model, same scores, different process.
+#
+# SECOND BENEFIT: the backend image drops ~4 GB. The old comment here recorded
+# that the torch closure made the image 5.4 GB and exhausted the GitHub
+# runner's disk. That problem leaves with it.
+#
+# IF YOU ARE TEMPTED TO PUT THEM BACK: the local backend still works and is
+# still supported (`RERANKER_BACKEND=local`) — the code was not removed, only
+# the dependency. But re-pinning them here re-imports all six findings into the
+# component that holds the platform's data. Install them in the sidecar
+# instead, which is scanned on its own and holds no data. If you must run
+# in-process, add them to a separate requirements file installed behind a
+# Dockerfile ARG, and MOVE THE `--extra-index-url` LINE WITH THEM: plain PyPI
+# torch 2.13.0 declares `cuda-toolkit==13.0.3` unconditionally on Linux and
+# will silently pull ~3 GB of CUDA wheels that nothing here uses.
+
+# Utilities
+python-dotenv==1.2.2
+httpx==0.28.1
+
+# Phase B — Design to Build
+python-gitlab==4.9.0
+python-jenkins==1.8.2
+# paramiko REMOVED 2026-08-20 (SCA follow-up) — it was an unused direct pin
+# carrying CVE-2026-44405. Nothing in the repo imports it; the only mention left
+# is the comment in app/services/host_runner.py:9 explaining why asyncssh was
+# chosen instead. See the accepted-risk section below for the full audit.
+unidiff==0.7.5
+
+# Phase B unified build+deploy — async SSH stream from backend → host
+# (replaces the local /app/scripts/build.sh path with the operator's
+# host-side build_and_deploy.sh executed remotely).
+asyncssh==2.24.0
+
+# Sandboxed code execution (Slice 14 — Docker-in-Docker via SDK; gated by SANDBOX_ENABLED)
+docker==7.1.0
+
+# Testing
+pytest==9.0.3
+pytest-asyncio==1.4.0
+
+# Docgen merge (Session 20+) — LangGraph-based BRD/TSD/Circular/Product Note
+# pipeline adopted from teammate's doc-generation-wiring branch (now always-on;
+# the docgen package itself imports lazily).
+# - langchain-core / langgraph: 5-stage StateGraph (retrieve → plan →
+#   diagrams → write → review → assemble).
+# - Pillow: fallback diagram renderer when PlantUML jar isn't available.
+# - pytesseract / pypdfium2: OCR fallback in app/rag/chunking.py for
+#   scanned PDFs (wired in STEP 9 only; deps land here).
+langchain-core==1.5.5
+langgraph==1.2.11
+# langchain 1.x no longer depends on the text splitters, so what used to arrive
+# transitively must be pinned directly. app/rag/chunking.py imports it.
+langchain-text-splitters==1.1.2
+Pillow==12.3.0
+pytesseract==0.3.13
+pypdfium2==5.12.1
+
+# Product Deck (.pptx) renderer — D3+. python-pptx 1.x has Pydantic-2-compatible
+# packaging and a stable shape API.
+python-pptx==1.0.2
+
+# Google's official A2A protocol SDK.
+a2a-sdk==1.0.2
+
+# Async Postgres driver for the SDK's async task store.
+asyncpg==0.31.0
+
+# Streaming dependency used by the A2A SDK JSON-RPC adapter.
+sse-starlette==3.0.3
+
+# Event queue used by a2a-sdk's AgentExecutor (imported at startup via
+# a2a.server.events.event_queue → import culsans). Missing from the direct
+# pins in the original requirements.txt — only present in the lock files as a
+# transitive resolve — so deployments that install from requirements.txt alone
+# (without the lock) crash on ModuleNotFoundError at worker startup.
+culsans==0.11.0
+
+# protobuf <6 because a2a-sdk 1.0.2 still relies on the older descriptor API.
+protobuf==5.29.6   # must stay <6 — see note above
+
+# Cassandra client (the network OLTP backup status lookups).
+# Used by app/services/cassandra_txn_client.py to fetch transaction status
+# from upi_oltp_backup.upi_txn_backup_<date> and upi_meta_txn_backup_<date>.
+cassandra-driver==3.29.2
+
+# requests — was pinned at 2.32.3 purely because multilspy==0.0.15 declares
+# `requests==2.32.3`. That exact pin carried CVE-2024-47081 (.netrc credential
+# leak, fixed 2.32.4) and CVE-2026-25645 (insecure temp file reuse in
+# extract_zipped_paths, fixed 2.33.0), and it could not be overridden by a floor
+# because an `==` requirement always wins.
+#
+# Broken by moving multilspy to a `--no-deps` install in the Dockerfile (see the
+# Slice 23 note above), which removes its opinion about requests entirely.
+# Every OTHER consumer in the closure already accepts a modern requests —
+# docker >=2.26.0, python-gitlab >=2.32.0, google-api-core >=2.20.0,
+# requests-toolbelt >=2.0.1, langsmith >=2.0.0, plus transformers,
+# huggingface-hub and python-jenkins which are unbounded. 2.34.2 also matches
+# what the partner platform already resolves, so the two services converge.
+requests==2.34.2
+#
+# ecdsa — RESOLVED 2026-08-20, not accepted. CVE-2024-23342 (HIGH, Minerva
+# timing attack on P-256) has NO FIX and never will; the maintainers consider
+# side-channel resistance out of scope. So the package itself was eliminated by
+# replacing python-jose with PyJWT (see the Auth section at the top of this
+# file). ecdsa was an UNCONDITIONAL core dependency of python-jose — not, as an
+# earlier revision of this note wrongly claimed, something the [cryptography]
+# extra pulled in. That distinction mattered: dropping the extra would have left
+# ecdsa installed AND moved jose's EC backend from OpenSSL onto the vulnerable
+# pure-Python implementation, making a dormant finding live. Removing the whole
+# library was the only real fix. `rsa` leaves the closure with it.
+
+#      app/services/sandbox.py uses docker.from_env() over the local socket and
+#      no DOCKER_HOST is set anywhere, so the ssh transport is never constructed.
+#      Both locks independently confirm it: paramiko's only "# via" line is
+#      `-r /w/requirements.txt`, i.e. this pin and nothing else.
+#   3. Removal orphans only pynacl (paramiko was its sole consumer, and no code
+#      imports nacl). bcrypt and cryptography survive — both are direct pins in
+#      their own right, and cryptography is additionally required by asyncssh,
+#      google-auth and python-jose.
+#
+# The real SSH path is asyncssh==2.24.0, which queries CLEAN on OSV and needs
+# only cryptography. Expect the regenerated locks to drop paramiko + pynacl.
+
+# starlette is FastAPI's core. This was previously held at 0.48.0 with a comment
+# explaining that reaching starlette 1.x "needs fastapi 0.141 -> fastapi-mail
+# 1.6.5 -> email-validator 2.3.0 -> pydantic >=2.12.5", and that bumping pydantic
+# across every schema and all 311 routes was a worse trade than the advisories.
+#
+# That reasoning was sound and its premise was wrong: fastapi-mail was never
+# imported by anything. Deleting it (see the Email section above) removes the
+# only link in that chain, so starlette 1.x now costs a fastapi bump and nothing
+# else — no email-validator, no pydantic. The six starlette advisories that were
+# accepted as residual are fixed here instead.
+starlette==1.3.1
+
+# transformers — NO LONGER IN THIS IMAGE AT ALL (bonus of the reranker split).
+#
+# It was never pinned here directly; it arrived transitively via
+# sentence-transformers 3.3.1, whose `transformers<5.0.0,>=4.41.0` capped it at
+# 4.57.6 and brought three advisories with it:
+#   - CVE-2026-4372 (HIGH,   fixed 5.3.0)
+#   - CVE-2026-5241 (HIGH,   fixed 5.5.0, LightGlue model-loading path)
+#   - CVE-2026-1839 (MEDIUM, fixed 5.0.0, Trainer class)
+#
+# These were previously documented as accepted-but-unfixed, because clearing
+# them required sentence-transformers 6.0.0 — a 3-major-version jump that also
+# drags huggingface_hub 0.36 -> 1.28. That trade is now moot for this image:
+# sentence-transformers moved to services/reranker/, so transformers is not in
+# the backend closure any more and neither are its three advisories. They did
+# not appear as separate rows in the 2026-08-27 report, but they were real and
+# they are gone from here.
+#
+# THEY STILL APPLY TO THE SIDECAR, which is scanned separately. The original
+# triage still holds there and is the justification recorded in the VEX file
+# (docs/sbom/vex.json): the model is operator-configured
+# (`settings.reranker_model`, default "BAAI/bge-reranker-v2-m3"), never
+# user-supplied, and neither Trainer nor LightGlue is imported — the only
+# surface used is CrossEncoder.predict(). Re-triage if the sidecar ever accepts
+# a caller-influenced model name; that is the precondition all three share.

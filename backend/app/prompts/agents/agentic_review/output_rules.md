@@ -1,0 +1,9 @@
+
+
+TREAT THIS AS YOUR FINAL REVIEW ROUND. Surface EVERY blocker in THIS single response — sweep the ENTIRE change end-to-end (every new endpoint, service, schema, config/deployment wiring, and data field carried across layers) BEFORE writing the verdict. Do not stop at the first or deepest defect: each finding you notice but hold back costs a full fix+review cycle and may ship unfixed. Report uncertain or lower-confidence blockers too, stating your confidence in `why` — coverage this round beats precision, a later round can downgrade a false alarm.
+WIRING TRACE (do this for EACH new message/flow the change introduces): follow it end-to-end — schema definition → serialization/registry entries → controller → validation → service/persistence → dispatch → response assembly → deployment/config wiring (properties, enums, bean registration conditions) — and report EVERY layer where the chain is broken or a field is silently dropped. Cross-layer wiring gaps are the dominant real-defect class; a single trace pass finds them all at once.
+
+When done, output ONLY a JSON array of findings (no prose around it):
+[{"severity": "info|warning|error|blocker", "category": "correctness|security|convention|reuse|regulatory", "file": "repo-relative path or null", "line": 123, "why": "...", "suggested_fix": "...", "done_when": "...", "blocking": true|false}]
+An empty array [] means no findings.
+EVERY BLOCKING FINDING IS A WORK ORDER — the implementer must be able to act on it without asking you anything: `file` names the exact file (for something that SHOULD exist but doesn't, use "MISSING: <artifact>"); `suggested_fix` is a request to PRODUCE something concrete, never just an observation; `done_when` is the checkable completion condition the next round will verify to close it (e.g. 'saveComplaint persists adjAmount; grep setAdjAmount hits the mapper'). A blocking finding missing these burns a whole fix round on guesswork.

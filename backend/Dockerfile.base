@@ -1,0 +1,28 @@
+# ============================================================================
+# Backend — Base Image (build this on a machine WITH internet)
+#
+# This image pre-installs all system dependencies (gcc, libpq, cairo, etc.)
+# so the production Dockerfile doesn't need APT access at all.
+#
+# Build ONCE on a machine with internet, then push to your private registry:
+#
+#   docker build -f Dockerfile.base -t <your-registry>/python-base:3.12 .
+#   docker push <your-registry>/python-base:3.12
+#
+# Then on the air-gapped machine, Dockerfile.prod uses this as base image.
+# ============================================================================
+
+FROM python:3.12-slim
+
+RUN apt-get update && apt-get install -y \
+    gcc \
+    libpq-dev \
+    libffi-dev \
+    libcairo2 \
+    libpango-1.0-0 \
+    libpangocairo-1.0-0 \
+    libgdk-pixbuf-xlib-2.0-0 \
+    libxml2 \
+    libxslt1.1 \
+    git \
+    && rm -rf /var/lib/apt/lists/*

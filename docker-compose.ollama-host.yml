@@ -1,0 +1,48 @@
+# Local override: use the Ollama running on the HOST instead of the
+# bundled `ollama` container.
+#
+# Why: the base docker-compose.yml hardcodes OLLAMA_URL=http://ollama:11434
+# in each service's `environment:` block (which wins over backend/.env), and
+# starts an `ollama` container. This overlay repoints the backend, celery and
+# celery_beat services at the host's Ollama (host.docker.internal:11434) and
+# parks the bundled `ollama` service behind an unused profile so it never
+# starts.
+#
+# Prereq on the host:
+#   ollama serve                 # running on :11434
+#   ollama pull nomic-embed-text # embeddings model the RAG pipeline needs
+#
+# Start with all three compose files (explicit -f disables the automatic
+# override merge, so docker-compose.override.yml must be listed too):
+#   docker compose \
+#     -f docker-compose.yml \
+#     -f docker-compose.override.yml \
+#     -f docker-compose.ollama-host.yml \
+#     up -d
+#
+# host.docker.internal resolves automatically on Docker Desktop (macOS/
+# Windows); the extra_hosts entry makes it work on Linux too — harmless on Mac.
+
+services:
+  backend:
+    environment:
+      OLLAMA_URL: http://host.docker.internal:11434
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  celery:
+    environment:
+      OLLAMA_URL: http://host.docker.internal:11434
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  celery_beat:
+    environment:
+      OLLAMA_URL: http://host.docker.internal:11434
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # Park the bundled container behind a profile that is never enabled, so
+  # `docker compose up` skips it. Nothing depends_on it, so this is safe.
+  ollama:
+    profiles: ["use-bundled-ollama"]

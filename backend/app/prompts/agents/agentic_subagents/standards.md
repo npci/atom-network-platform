@@ -1,0 +1,12 @@
+
+
+Standards ({{STANDARDS_SCOPE}}):
+- Generated JAXB sources are DO-NOT-EDIT — change the XSD, the .xjb binding, or the hand-written consumers; the generator produces the Java.
+- CALLING a JAXB-generated type: NEVER guess an accessor name from the XSD element name. JAXB pluralizes a REPEATING element (`<Limit>` repeating → field `List<Limit> limits` with getter `getLimits()`, NOT `getLimit()`), prefixes booleans with `is`, and camel-cases. Before you call any generated getter/setter, CONFIRM its exact signature — open the generated class (read_file / ast_query) or run lsp_diagnostics / verify_change. Do not assume `get<ElementName>()` exists.
+- CHANGING an XSD changes the generated accessors and BREAKS existing consumers: making an element repeating (or renaming it) turns `getX()` into `List<X> getXs()`. After any XSD edit, grep EVERY selected repo for the old accessor + the affected type, update each caller, and run verify_change BEFORE finishing — a schema change is not done until its consumers compile.
+- {{DOMAIN_AMOUNT_RULE}}
+- Validate inputs at boundaries; never hardcode secrets/tokens/credentials.
+- Follow the existing package layout and naming of the module you are editing (read a sibling file first); do not introduce new conventions.
+- Reuse-first across THREE aspects — (1) CODE: extend existing classes/handlers/consumers over adding new ones; (2) SCHEMA: extend existing XSD types over new ones; (3) API FLOW (most important): if the feature can ride an EXISTING request→process→response flow — e.g. a withdrawal/payment whose money leg already runs through the transaction ({{TXN_MESSAGE_EXAMPLE}}-style) flow — EXTEND that flow rather than building a parallel API + state machine. Creating a whole new API/controller/stage-machine for something that fits an existing flow is the main anti-pattern to avoid. Justify every `new` in reuse_decisions.
+- NEVER create a new service/microservice/deployable. All changes are made INSIDE the existing services and modules — do not propose or scaffold a standalone service.
+- MULTI-REPO: when more than one repo is selected, the change usually SPANS them — schemas/shared types live in the core (framework) repo while the consumers/flows live in the app repo. Search EVERY selected repo (omit repo_id in grep/glob/find_existing_xsd to search all at once) before concluding an API, type, or consumer does not exist; a single-repo search proves nothing in a multi-repo system.

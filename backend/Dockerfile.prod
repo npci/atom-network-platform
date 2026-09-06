@@ -1,0 +1,57 @@
+# ============================================================================
+# Backend — Production Dockerfile (air-gapped / private registry)
+#
+# Registry host is a BUILD ARG, not a baked-in hostname, so this file works
+# against any internal Nexus/Artifactory/Harbor without editing it.
+#
+# SETUP (one-time, on a machine WITH internet):
+#   1. Build base image:
+#      docker build -f Dockerfile.base --build-arg REGISTRY=<your-registry> \
+#        -t <your-registry>/python-base:3.12 .
+#   2. Push it:
+#      docker push <your-registry>/python-base:3.12
+#
+# BUILD (on the air-gapped machine):
+#   docker build -f Dockerfile.prod \
+#     --build-arg REGISTRY=<your-registry> \
+#     --build-arg PIP_INDEX_URL=https://<your-registry>/pypi-proxy/simple/ \
+#     -t cmp-backend:prod .
+#
+# Prerequisites on the registry:
+#   - Docker hosted repo (for the pre-built base image)
+#   - PyPI proxy
+#
+# NOTE: PIP_TRUSTED_HOST exists for registries served over plain HTTP. Prefer
+# HTTPS — a plain-HTTP index with --trusted-host allows package injection by
+# anyone on the build network.
+# ============================================================================
+
+ARG REGISTRY=docker.io
+ARG PYTHON_BASE_IMAGE=${REGISTRY}/python-base:3.12
+
+# Pre-built base image with gcc, libpq, cairo, pango, git etc.
+# No apt-get needed — all system deps already installed
+FROM ${PYTHON_BASE_IMAGE}
+
+WORKDIR /app
+
+# Unbuffered stdout/stderr. Python BLOCK-buffers stdout when it is a pipe (as it
+# always is under Docker) but line-buffers stderr, so without this the INFO half
+# of the console severity split (app/core/log_buffer.py) would reach
+# `docker compose logs -f` in delayed ~4-8 KB bursts while warnings appeared
+# immediately — looking like lag and out-of-order logging.
+ENV PYTHONUNBUFFERED=1
+
+ARG PIP_INDEX_URL=https://pypi.org/simple/
+ARG PIP_TRUSTED_HOST=""
+
+# Python packages — only needs the PyPI proxy
+COPY requirements.txt .
+RUN pip install --no-cache-dir \
+    --index-url "${PIP_INDEX_URL}" \
+    ${PIP_TRUSTED_HOST:+--trusted-host "${PIP_TRUSTED_HOST}"} \
+    -r requirements.txt
+
+COPY . .
+
+EXPOSE 8000

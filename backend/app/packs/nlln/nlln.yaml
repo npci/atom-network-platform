@@ -1,0 +1,649 @@
+key: nlln
+version: '1.0'
+prompt_blocks:
+  hard_rules: '# NLLN LIBRARY-LOAN DOCUMENT HARD RULES (must follow; violations fail review)
+
+
+    ## Error Codes
+
+    - All loan-protocol error codes MUST use the NLLN alphanumeric format: L01-L99 (loan-state errors),
+    C0-C9 (catalogue/holdings errors), RV (reservation conflict), XL (loan-limit exceeded).
+
+    - NEVER use HTTP status codes (400, 401, 403, 404, 500, 502, 503) for loan-protocol errors.
+
+    - Every error code MUST be classified as "SE" (System Error) or "PD" (Policy Decline). Never "error",
+    "failure", or other free-form labels.
+
+    - Every error code row MUST identify the responsible entity: Participant Library / NLLC / Lending
+    Library / Borrowing Library.
+
+
+    ## Functional Requirements
+
+    - Every BRD/Tech Spec functional requirement MUST be numbered FR-01, FR-02, FR-03, ... (zero-padded
+    to 2 digits).
+
+    - A BRD must have at least 6 functional requirements.
+
+    - Each FR must be a single declarative sentence beginning with "The system shall", "NLLC shall", "Participant
+    Library must", or a similar explicit subject.
+
+
+    ## Obligation Language
+
+    - Use active obligation verbs: "NLLC shall", "Participant Library must", "Lending Library shall",
+    "The system shall".
+
+    - NEVER use vague phrasing: "the system will", "ideally", "should probably", "in some cases".
+
+    - Every flow step must name the responsible actor (Lending Library / NLLC / Borrowing Library / Patron).
+
+
+    ## Placeholders
+
+    - Final output must contain ZERO placeholder text. Never emit: "TBD", "TODO", "XXX", "<placeholder>",
+    "N/A" (unless truly not applicable and stated so), "lorem ipsum".
+
+    - If a detail is genuinely unknown, state the assumption explicitly with an "Assumption:" prefix.
+
+
+    ## Loan Periods & Limits
+
+    - Use a structured duration (numeric value + unit) for loan periods (e.g., "14 days"), never a bare
+    unqualified number.
+
+    - Renewal counts and reservation queue lengths are integers; state the unit explicitly.
+
+
+    ## API & Field Naming
+
+    - Request API names use the form "ReqXxxYyy" (PascalCase after Req).
+
+    - Response API names use the form "RespXxxYyy".
+
+    - Field names use camelCase (e.g., patronId, loanPeriod), never snake_case or PascalCase.
+
+    - Every field row must specify: type, mandatory (Y/N), dLength, description.
+
+
+    ## XSD / Schema
+
+    - XSD element names use PascalCase (e.g., <LoanPeriod>).
+
+    - XSD attributes use camelCase.
+
+    - All duration/count fields use xs:decimal or xs:integer with explicit restrictions; never xs:string
+    for numeric values.
+
+    '
+  api_design_principles: ''
+  error_codes: '## Example error codes (reference only — use ones relevant to the feature)
+
+    | Code | se_pd | Entity | Description |
+
+    |------|-------|--------|-------------|
+
+    | L09  | SE    | Participant Library | Invalid patron identifier |
+
+    | L16  | SE    | NLLC   | Catalogue lookup timeout |
+
+    | C30  | PD    | Lending Library | Item not available for loan |
+
+    | RV   | PD    | NLLC   | Reservation conflict — item already held |
+
+    | XL   | PD    | Participant Library | Patron loan limit exceeded |
+
+    '
+  authority: NLLC
+  evidence_sources: NLLC / Library Consortium Policy
+  evidence_heading: Retrieved NLLC corpus evidence
+  citation_example: Participant libraries must confirm a hold within 48h [S2].
+  reference_kind: policy circular
+  claim_kinds: consortium policy obligation, error-code, API name, or SLA claim
+  document_register: NLLC-governed specification document
+  platform_name: the NLLC Library-Loan Change Management Platform
+  domain_name: NLLN
+  ecosystem_description: NLLC operates the inter-library loan switch connecting member libraries so patrons
+    can borrow items held by any participant.
+  ecosystem_actors: member libraries, NLLC, patrons
+  compliance_note: Any new library-loan feature must comply with NLLC consortium policy and be backward-compatible
+    with the existing participant network (lending libraries, borrowing libraries).
+  regulatory_body: NLLC
+  market_comparables: comparable library consortia and ILS vendors (Ex Libris, OCLC, Koha, etc.)
+  market_context: the inter-library resource-sharing context
+  product_operating_extra: ''
+  regulatory_claim_label: NLLC policy circular
+  numbered_citation_example: The standard loan period is 14 days for most participants [3].
+  corpus_label: NLLC corpus
+  # Certification-workbook display labels (excel_testcase_engine). These are
+  # LABELS ONLY — the wire value stays "Bank"/"NPCI" for cert-agent; see
+  # workbook_plan.TestCaseStub.txn_initiated_by.
+  test_case_scope: NLLN v1
+  initiator_authority_label: NLLC
+  initiator_participant_label: Participant Library
+  role_as_label: Library as
+  # Ecosystem knowledge spliced into every docgen planner/writer prompt via
+  # `_PACK_DOMAIN_NOTES`. Before this key existed the docgen pipeline handed the
+  # model UPI's participants and REQ_PAY flow regardless of the active pack, which
+  # is why a library-domain TSD still said "No new NPCI wire codes".
+  #
+  # Every fact below is read off the fixture contract
+  # (nlln-contract/src/main/resources/xsd/nlln-v1.xsd and ErrorCode.java) — the
+  # message list, the namespace binding, the result values and the E001–E008 codes
+  # are verbatim from source, not paraphrased. Do not add a code or message here
+  # that the schema does not define: this block is stated to the model as fact and
+  # it will be cited as such.
+  docgen_generic_domain_notes: |-
+
+    ═══════════════════════════════════════════════════════════
+    NLLN DOMAIN KNOWLEDGE — USE ALL YOU HAVE; KEY FACTS BELOW
+    ═══════════════════════════════════════════════════════════
+    ECOSYSTEM PARTICIPANTS:
+      · NLLC — National Library Lending Council. Operates the inter-library loan
+        switch and issues the specifications. The authority.
+      · Lending Library — holds the physical copy; answers availability and lends it.
+      · Borrowing Library — requests the item on behalf of its patron.
+        "Lending" and "borrowing" are ROLES a member library takes per loan, not
+        separate organisations; one participant can act as either.
+      · Patron — the end borrower. Never speaks the wire protocol directly.
+
+    WIRE MESSAGE TYPES (all of them — the contract defines no others):
+      · ReqMemberVerify / RespMemberVerify — confirm a patron handle, standing
+        (GOOD|SUSPENDED) and active-vs-maximum loan counts.
+      · ReqAvailabilityCheck / RespAvailabilityCheck — ask a library whether a copy
+        of an ISBN is on the shelf.
+      · ReqLoanReport / RespLoanReport — report a loan into NLLC and open it.
+      · ReqLoanClose / RespLoanClose — return / close out an open loan.
+      · ReqRecallNotify / RespRecallNotify — recall an item before its due date.
+
+    SCHEMA AND WIRE FORM:
+      · Namespace http://nlln.in/schema/v1, bound as the DEFAULT namespace
+        (xmlns="…") — the contract binds no prefix, so samples are unprefixed.
+      · Every response carries Resp.result; the only permitted values are
+        SUCCESS and FAILURE.
+      · Shared types: Head, Member, Book, Loan, Resp, ErrorCode.
+
+    ERROR CODES (flat E-series; the enum defines exactly these eight):
+      · E001 Unknown member handle
+      · E002 Member is suspended
+      · E003 Member has reached the concurrent loan limit
+      · E004 No copy of this ISBN is available at the library
+      · E005 Unknown loan reference
+      · E006 Loan is not in a state that permits this transition
+      · E007 Unknown or unregistered participant orgId
+      · E008 Malformed request
+
+    CHANGE CLASSIFICATION (the NLLC rulebook, stated in the contract header):
+      · ADDITIVE — optional attribute/element added. No recertification.
+      · BEHAVIOURAL — same schema, changed validation rule. Recertification REQUIRED.
+      · BREAKING — type change, removal, or cardinality change. New namespace plus a
+        coexistence window.
+      Classify against these definitions, not by whether the change "feels" small:
+      adding an optional field but also rejecting values that were previously
+      accepted is BEHAVIOURAL, because a validation rule changed.
+  # Domain retrieval vocabulary appended by app/rag/query_rewriter.py to its
+  # (neutral) system prompt under a "Domain vocabulary" heading. Every message
+  # name and error code below is read off the fixture contract facts already
+  # stated in docgen_generic_domain_notes — nothing here is invented beyond
+  # this file's own facts.
+  retrieval_domain_expertise: |-
+    You are an NLLC inter-library-loan domain expert. The corpus holds NLLC
+    policy circulars, consortium policy documents, past BRDs/TSDs, API specs,
+    XSD schemas, error codes, FAQs, and certification testcases.
+
+    1. Expand informal/casual terms to official NLLC terms:
+       - "borrow" / "check out" -> "loan issue", "loan report", "open loan"
+       - "hold" / "book a copy" -> "reservation", "reserve (place a hold)"
+       - "give back" / "hand in" -> "loan close", "return", "close out an open loan"
+       - "extend" / "auto-renew" -> "loan renewal", "renew (extend an active loan)"
+       - "call back a book" -> "recall", "recall an item before its due date"
+       - "is it on the shelf" -> "availability check", "copy availability by ISBN"
+
+    2. Include relevant NLLN wire message names where obviously applicable:
+       ReqMemberVerify, RespMemberVerify, ReqAvailabilityCheck,
+       RespAvailabilityCheck, ReqLoanReport, RespLoanReport, ReqLoanClose,
+       RespLoanClose, ReqRecallNotify, RespRecallNotify
+
+    3. Include relevant error codes where obviously applicable:
+       E001 (unknown member handle), E002 (member suspended), E003 (concurrent
+       loan limit reached), E004 (no copy available), E005 (unknown loan
+       reference), E006 (illegal loan-state transition), E007 (unknown
+       participant orgId), E008 (malformed request)
+
+    4. Include consortium policy vocabulary:
+       NLLC policy circular, consortium policy, participant library, lending
+       library, borrowing library, patron standing, loan period, recall,
+       ADDITIVE / BEHAVIOURAL / BREAKING change classification
+  # ── Docgen genericisation sweep: library-domain equivalents of the docgen ──
+  # vocabulary that used to be hardcoded (UPI-flavoured) in
+  # app/docgen/agents/pipeline.py and app/docgen/document_guides.py. Facts are
+  # taken from docgen_generic_domain_notes above (fixture contract) — no
+  # invented codes, messages, or reference formats.
+  docgen_circular_letterhead_note: NLLC letterhead with the policy circular reference number and
+    issue date.
+  docgen_circular_addressees: 'Complete recipient list: all member libraries of the NLLN network.'
+  docgen_schema_namespace_note: '- Every XML sample uses the default namespace xmlns="http://nlln.in/schema/v1"
+    — the contract binds no prefix, so samples are unprefixed.'
+  docgen_ownership_roles: |-
+    OWNERSHIP MODEL — DOMAIN ROLE RESPONSIBILITIES (extends the layer model in the rules above):
+      · Lending Library = holdings truth, availability responses, lends the item.
+      · Borrowing Library = patron requests, loan initiation on behalf of its patron.
+      · NLLC = routing/aggregation, member registry.
+  docgen_envisaged_changes_role_label: Lending Library
+  docgen_envisaged_changes_role_responsibilities: holdings truth, availability responses, and lending
+    the item
+  docgen_servicing_transaction_phrase: availability checks and loan requests
+  docgen_risk_scenario_examples: collusion between libraries, replay/duplicate loan reports, patron
+    identity misuse, loan-limit evasion, social engineering, velocity abuse
+  docgen_business_aggregate_examples: Loan, Reservation, Member, etc.
+  docgen_sla_flow_examples: member verification, availability check, loan report, loan close, recall
+    notification
+  # ── Genericity-sweep blocks — every fact below is read off this pack's own
+  # docgen_generic_domain_notes / hard_rules (the fixture contract), never
+  # invented. ──
+  authority_full: NLLC (National Library Lending Council)
+  partner_descriptor: A participant library (lending or borrowing)
+  partner_label: participant library
+  domain_descriptor: the NLLN inter-library loan network
+  canonical_api_name_note: NLLN canonical form is 'ReqXxxYyy' / 'RespXxxYyy' (PascalCase
+    after Req/Resp). Replace with one of the contract's real messages (ReqMemberVerify,
+    ReqAvailabilityCheck, ReqLoanReport, ReqLoanClose, ReqRecallNotify), or rename to
+    canonical form.
+  decline_party_enumeration: Borrowing Library, NLLC, Lending Library
+  decline_perspective_example: A recall that goes unanswered at the Borrowing Library
+    leaves an open loan in an uncertain state needing reconciliation — as essential as
+    an unavailable copy.
+  decline_example_row: '{"api":"<primary api>","owning_entity":"Lending Library",
+
+    "observing_entity":"Borrowing Library","stage":"issue","failure_type":"decline",
+
+    "condition":"no copy of this ISBN is available (E004)","required_behavior":"reject;
+    no loan opened; notify borrowing library",
+
+    "reachable":true,"rationale":"every issue can hit unavailability"}'
+  proposals_error_code_rule: |-
+    - Every error code MUST use the NLLN format: a contract E-series code (the enum defines exactly E001-E008) or an NLLC switch code (L01-L99).
+      NEVER emit HTTP status codes (400, 401, 500) as error codes.
+  proposals_error_class_rule: '- Every error code MUST have td_bd = "SE" (System Error)
+    or "PD" (Policy Decline).'
+  # Few-shot output shape for the proposals extractor. Messages, codes, fields
+  # and result values are verbatim from the fixture contract facts above.
+  proposals_few_shot_example: |-
+    {
+      "apis": [
+        {"name": "ReqLoanReport", "response": "RespLoanReport", "initiator": "Borrowing Library", "description": "..."}
+      ],
+      "request_fields": [
+        {"name": "patronId", "type": "String", "mandatory": true, "dLength": "64", "description": "Patron handle at the borrowing library"}
+      ],
+      "response_fields": [
+        {"name": "result", "type": "String", "mandatory": true, "dLength": "10", "description": "SUCCESS or FAILURE"}
+      ],
+      "error_codes": [
+        {"code": "E003", "td_bd": "PD", "entity": "Participant Library", "description": "Member has reached the concurrent loan limit"},
+        {"code": "E004", "td_bd": "PD", "entity": "Lending Library", "description": "No copy of this ISBN is available at the library"}
+      ],
+      "auth_method": "Member standing check via ReqMemberVerify (GOOD | SUSPENDED)",
+      "transaction_limit": "Concurrent loan limit per member (E003 on breach); standard loan period 14 days",
+      "flow_sequence": [
+        "Step 1: Patron — requests an item at the Borrowing Library",
+        "Step 2: Borrowing Library — sends ReqAvailabilityCheck via NLLC",
+        "Step 3: Lending Library — answers RespAvailabilityCheck (copy on shelf or E004)",
+        "Step 4: Borrowing Library — reports the loan with ReqLoanReport; NLLC opens it"
+      ],
+      "current_state": "Today patrons ...",
+      "limitations": "The existing flow suffers from ...",
+      "functional_requirements": [
+        "FR-01: The system shall allow ...",
+        "FR-02: NLLC shall validate ...",
+        "FR-03: Participant Library must ...",
+        "FR-04: ...",
+        "FR-05: ...",
+        "FR-06: ..."
+      ],
+      "dispute_framework": "Recalls via ReqRecallNotify / RespRecallNotify; no separate dispute framework is defined",
+      "user_journey_plain": [
+        "Step 1: Patron asks their library for an item it does not hold",
+        "Step 2: The library locates a copy at another participant",
+        "..."
+      ],
+      "test_scenarios": [
+        {"scenario": "Happy path loan report", "objective": "Verify a loan opens and closes cleanly", "owner": "Borrowing Library"}
+      ],
+      "policy_rules": [
+        "Concurrent loan limits apply per member",
+        "Suspended members (E002) cannot open loans"
+      ],
+      "failure_scenarios": [
+        {"scenario": "Catalogue lookup timeout", "behavior": "Return L16; retry once"}
+      ],
+      "participant_obligations": {
+        "Lending Libraries": ["Must answer ReqAvailabilityCheck and honour recalls", "..."],
+        "Borrowing Libraries": ["Must report loans via ReqLoanReport and close them via ReqLoanClose", "..."],
+        "NLLC": ["..."]
+      },
+      "go_live_timeline": "2026-06-30 (or null if undecided)",
+      "supersedes_circular": "NLLC policy circular reference (or null)"
+    }
+  kit_user_journey_actors: '- Patron (end borrower)
+
+    - Borrowing Library
+
+    - Lending Library
+
+    - The NLLC switch'
+  kit_faq_audience_3: '## SECTION 3: Library (Lending / Borrowing) FAQs
+
+
+    Generate 8–12 Q&A pairs covering:
+
+    - Impact on existing loan-lifecycle processes
+
+    - Catalogue / holdings synchronisation changes
+
+    - Recall and loan-close handling
+
+    - Go-live dependencies
+
+    - Consortium policy reporting changes'
+  kit_test_identifiers: '- Test patron handle format to use
+
+    - Test participant orgIds'
+  kit_boundary_examples: maximum loan period, zero renewals remaining, special characters
+    in patron handles
+  # ── Genericity sweep: Phase B / agentic / certification prompt fragments.
+  # Only concepts this pack's own facts support are declared; anything absent
+  # (cred subtypes, certificate product taxonomy, repo path examples) is
+  # deliberately omitted so the neutral defaults apply — NLLN must not borrow
+  # UPI's examples nor invent its own.
+  authority_full_name: National Library Lending Council
+  code_change_domain_notes: '- All loan periods, renewal counts and reservation queue
+    lengths are integers with explicit units, never floating-point'
+  infosec_domain_notes: |-
+    ## NLLC-Specific Security Standards
+    - No hardcoded secrets, API keys, passwords, or tokens anywhere in code
+    - No patron PII (name, contact details, patron identifiers, borrowing history) logged in plain text
+    - All external communication must enforce TLS (no http:// URLs for APIs)
+    - Input validation on all loan-protocol fields (patron identifiers, ISBN format, loan periods and counts)
+    - Loan periods and renewal counts must be handled as integers with explicit units, never floating-point
+    - No sensitive data in URL query parameters
+    - Proper use of CSRF tokens for state-changing operations
+    - Secure random number generation (SecureRandom, not Random)
+  # prompts/agents/plan_contract/rule.md placeholders — Req*/Resp* naming is a
+  # stated NLLN hard rule; ReqLoanReport is a real contract message.
+  message_type_example: e.g. ReqXxx/RespXxx pairs
+  schema_field_example: e.g. a new field on ReqLoanReport
+  # prompts/agents/agentic_subagents/standards.md + subagent prefaces.
+  primary_txn_message: ReqLoanReport
+  example_message_names: ReqLoanReport/RespLoanReport/ReqAvailabilityCheck
+  example_element_names: e.g. 'ReqLoanReport', 'Member', 'Loan'
+  central_switch_label: the NLLC switch
+  domain_amount_rule: Loan periods, renewal counts and reservation queue lengths are
+    integers with explicit units — never floating point.
+  counterparty_examples: a lending/borrowing library or NLLC counterpart
+  canonical_term_examples: '{"term":"standard loan period","value":"14 days"}, {"term":"result
+    value","value":"SUCCESS"}'
+  # excel_testcase_engine defaults. Role sheets / summary headers / linter
+  # phrases derive from cert_vocabulary role_labels automatically; only the
+  # values with no derivable source are declared here.
+  default_apis: ReqLoanReport, RespLoanReport
+  scope_sheet_code_examples: "L16|Catalogue lookup timeout\nE004|No copy of this ISBN is available at the library"
+  # services/cert_signoff_doc.py — how the certified party is addressed on a
+  # certificate (UPI's default is "Bank").
+  cert_partner_label: Participant Library
+# Clarification gating + safe defaults (assumption_handler). Only concepts this
+# pack actually declares: loan periods / renewals (hard_rules), recalls
+# (ReqRecallNotify), loan limits (E003), reservations (RV / change_operations),
+# patron data (compliance_levels patron-data-touched), member standing
+# (GOOD|SUSPENDED), policy circulars (reference_kind). Anything NLLN has not
+# stated a default for is deliberately omitted — the platform must not invent
+# an assumption for this domain.
+clarification_must_ask_keywords:
+- loan_period
+- renewal
+- recall
+- loan_limit
+- reservation
+- patron_data
+- patron_privacy
+- member_standing
+- go_live
+- supersedes_circular
+default_assumptions:
+  loan_period: 14 days (standard participant loan period)
+  retry_policy: 3 retries with exponential backoff
+  test_scenarios: Derived from blueprint happy-path + failure scenarios
+  participant_obligations: Follow existing NLLC policy circular obligations
+participants:
+- key: nllc
+  label: NLLC
+  is_authority: true
+- key: lending_library
+  label: Lending Library
+  is_authority: false
+- key: borrowing_library
+  label: Borrowing Library
+  is_authority: false
+- key: patron
+  label: Patron
+  is_authority: false
+# Repository topology. NLLN ships as ONE git repo (NirbhayN/nllm-fixtures) holding
+# three Maven modules — nlln-contract, nllc-authority, anna-library — so it declares
+# a single role, whose key matches the registered CodeRepo row's `role`.
+#
+# builds_first: true is load-bearing, not decoration. Both nllc-authority and
+# anna-library declare a dependency on in.nlln:nlln-contract:1.0.0, so a change to
+# the contract module (e.g. CR-1's Book.language) must be installed to the local
+# .m2 before its consumers compile. Without this, verification_plan builds only the
+# touched modules and the consumers resolve a STALE contract jar. Setting it forces
+# a full-reactor `mvn install`, which builds contract -> authority -> library in
+# dependency order.
+repo_roles:
+- key: app
+  label: NLLN fixture (contract + authority + participant modules in one repo)
+  required: true
+  multiple: false
+  builds_first: true
+change_operations:
+- key: reserve
+  label: Reserve (place a hold on an item)
+  description: ''
+- key: issue
+  label: Issue (check the item out to a patron)
+  description: ''
+- key: renew
+  label: Renew (extend an active loan)
+  description: ''
+- key: close
+  label: Close (return / close out a loan)
+  description: ''
+risk_levels:
+- key: low
+  label: Low
+  description: Minor UI/copy change, no new fields, no loan-state change
+- key: standard
+  label: Standard
+  description: New fields or logic, existing loan-lifecycle flow
+- key: high
+  label: High
+  description: New loan-lifecycle flow, new fraud/abuse surface, or novel dispute path
+compliance_levels:
+- key: standard
+  label: Standard
+  description: No new consortium policy requirement
+- key: NLLC-mandated
+  label: NLLC-mandated
+  description: Driven by a specific NLLC policy circular
+- key: patron-data-touched
+  label: Patron-data-touched
+  description: Patron PII, borrowing history, or reporting-adjacent
+# Feature-classification buckets for retrieval steering (app/agents/taxonomy.py,
+# read via feature_taxonomy_of). Derived from this pack's own facts only: the
+# change_operations above (reserve/issue/renew/close), the wire message
+# catalogue and the E-series codes in docgen_generic_domain_notes, and the
+# field names in cert_vocabulary.role_test_data_fields. The first bucket is
+# the keyword-fallback default.
+feature_taxonomy:
+- key: loan_lifecycle
+  label: Loan Lifecycle (issue / renew / close)
+  keywords: [loan, issue, checkout, check out, borrow, return, close, renew, renewal, due date, loan period, overdue]
+  required_fields: [patron_id, item_id, loan_period_days]
+  seed_queries:
+  - ReqLoanReport RespLoanReport open loan flow
+  - ReqLoanClose loan return flow
+  - loan renewal extend active loan
+  - loan state transition rules E006
+- key: reservation_holds
+  label: Reservations / Holds
+  keywords: [reserve, reservation, hold, queue, place a hold]
+  required_fields: [patron_id, item_id]
+  seed_queries:
+  - reserve place a hold on an item
+  - reservation queue participant library
+  - hold confirmation NLLC policy
+- key: availability_catalogue
+  label: Availability / Catalogue
+  keywords: [availability, available, catalogue, catalog, holdings, isbn, copy, shelf]
+  required_fields: [item_id, lending_library_id]
+  seed_queries:
+  - ReqAvailabilityCheck RespAvailabilityCheck flow
+  - ISBN copy availability lending library
+  - no copy available E004
+- key: member_management
+  label: Member / Patron Management
+  keywords: [member, patron, standing, suspended, verify, verification, handle, loan limit, registration]
+  required_fields: [patron_id, borrowing_library_id]
+  seed_queries:
+  - ReqMemberVerify patron standing GOOD SUSPENDED
+  - concurrent loan limit E003
+  - unknown member handle E001
+- key: recall_management
+  label: Recall Management
+  keywords: [recall, call back, notify, notification, before due date]
+  required_fields: [item_id, loan_reference]
+  seed_queries:
+  - ReqRecallNotify recall before due date
+  - recall notification lending library flow
+change_types:
+- key: new_feature
+  label: New library-loan feature
+  artifacts:
+  - canvas
+  - brd
+  - tech_spec
+  - xsd
+  requires_certification: false
+  requires_publication: true
+- key: spec_amendment
+  label: Specification amendment
+  artifacts:
+  - brd
+  - tech_spec
+  requires_certification: false
+  requires_publication: true
+artifacts:
+- key: canvas
+  label: Product Canvas
+  renderer: markdown
+  blueprint_doc_type: canvas
+- key: brd
+  label: Business Requirement Document
+  renderer: docx
+  blueprint_doc_type: brd
+- key: tech_spec
+  label: Technical Specification
+  renderer: docx
+  blueprint_doc_type: tech_spec
+- key: xsd
+  label: XSD Schema
+  renderer: markdown
+  blueprint_doc_type: xsd
+cert_vocabulary:
+  role_scopes:
+    LENDING_LIBRARY:
+    - PARTICIPANT
+    BORROWING_LIBRARY:
+    - PARTICIPANT
+  role_prefixes:
+    LENDING_LIBRARY: LL_
+    BORROWING_LIBRARY: BL_
+  role_labels:
+    LENDING_LIBRARY: Lending Library
+    BORROWING_LIBRARY: Borrowing Library
+  role_test_data_fields:
+    LENDING_LIBRARY:
+    - item_id
+    - lending_library_id
+    - loan_period_days
+    BORROWING_LIBRARY:
+    - patron_id
+    - borrowing_library_id
+
+# The shape of an NLLN error code, for the "does this document actually name
+# codes?" document checks. Read off the fixture contract, not off this pack's
+# own hard_rules prose: nlln-contract/.../ErrorCode.java defines E001-E008 (CR-1
+# adds E009) and the NLLC switch contributes L-prefixed codes such as L16.
+# NOTE: prompt_blocks.hard_rules above still tells the model codes MUST be
+# L01-L99 / C0-C9 / RV / XL. C0-C9, RV and XL appear NOWHERE in the contract.
+# That contradiction is logged, not silently reconciled here — changing the
+# hard rule changes generated document CONTENT, which is a separate call.
+error_code_pattern: \b(?:E\d{3}|L\d{2})\b
+
+# NLLN is an XML ecosystem (nlln-v1.xsd, namespace http://nlln.in/schema/v1).
+# Declared explicitly rather than left to cert_case_builder's `or "xml"` fallback,
+# so the round records a stated fact instead of a coincidental default.
+wire_format: xml
+
+# NLLN certifies through the platform's pack-driven simulator. The string names
+# a harness the PLATFORM registers (app/services/cert_harnesses.py) — config
+# supplies the name, the platform supplies the behaviour. Scope, templates and
+# assertions all derive from the API registry + published sim packs, so the
+# engine carries no payments assumptions. Omit this key entirely for a domain
+# with no certification body.
+certification_harness: sim_pack
+
+# NLLN distributes changes to participant libraries over the platform's A2A
+# transport — the same signed, authenticated wire UPI uses. The string names a
+# channel the PLATFORM registers (app/services/partner_channels.py); config
+# names it, the platform supplies it. Omit for a publish-and-notify domain.
+partner_channel: a2a
+
+# The shape of an NLLN wire message NAME. Req*/Resp* PascalCase is a stated
+# hard rule of this pack; the contract defines no synchronous Ack, so — unlike
+# UPI — no Ack alternative is declared.
+message_name_pattern: \b(?:Req|Resp)[A-Z][A-Za-z0-9]+\b
+
+# No `message_flows`: NLLN certifies through the pack-driven simulator, not
+# cert-agent's flow registry, so there is no baseline API->flow table to
+# declare. An unmapped stub surfaces as an unknown API instead of guessing.
+
+# Heuristic FR-tagging regexes over this pack's own change_operations and
+# cert parties. Tags are advisory (the planner works untagged), so these are
+# deliberately simple; a miss tags nothing.
+operation_patterns:
+  reserve: \b(reserv(?:e|es|ed|ing|ation)|place (?:a )?hold)\b
+  issue: \b(issu(?:e|es|ed|ing) (?:the )?(?:item|loan|book)|check(?:s|ed)?[- ]?out|lend(?:s|ing)?)\b
+  renew: \b(renew(?:al|s|ed|ing)?)\b
+  close: \b(clos(?:e|es|ed|ing) (?:the )?loan|return(?:s|ed|ing)? (?:the )?(?:item|book)|reqloanclose)\b
+party_patterns:
+  LENDING_LIBRARY: \b(lending\s+librar(?:y|ies))\b
+  BORROWING_LIBRARY: \b(borrowing\s+librar(?:y|ies))\b
+
+# No `financial_operations`: NLLN moves no money, so every flow legitimately
+# classifies as "meta".
+
+# Loose party spellings -> canonical party keys.
+party_aliases:
+  LENDER: LENDING_LIBRARY
+  LENDING: LENDING_LIBRARY
+  BORROWER: BORROWING_LIBRARY
+  BORROWING: BORROWING_LIBRARY
+
+# Ecosystem acronyms an error-code-shaped scan must not mistake for codes.
+domain_acronyms:
+- NLLC
+- NLLN
+- ISBN
+
+# No `schema_namespaces`: the contract binds exactly one namespace
+# (http://nlln.in/schema/v1) with no variant spellings to reconcile.

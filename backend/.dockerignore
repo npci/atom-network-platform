@@ -1,0 +1,13 @@
+.env
+.env.*
+__pycache__/
+*.pyc
+.pytest_cache/
+.git/
+*.md
+logs/
+# Local dev virtualenvs — ~1.2GB; never belongs in the image, and sending it as
+# build context is what made `docker compose build` crawl/hang.
+venv/
+.venv/
+env/

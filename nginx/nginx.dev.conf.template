@@ -1,0 +1,160 @@
+# TRIMMED to the authority + partner pair.
+# The recovered original came from a larger multi-project compose and declared
+# upstreams for certsim / apisim / precert / banksim / bankagent, none of which
+# run here. nginx resolves every upstream AT STARTUP, so a single unresolvable
+# name is fatal to the whole proxy, not just to its own route -- the container
+# died on 'host not found in upstream "apisim_frontend:80"'.
+# Full original preserved alongside as nginx.dev.conf.template.full-multistack.
+#
+# ═══════════════════════════════════════════════════════════════════════════
+# NPCI A2A Platform — outer nginx (DEV / local-compose variant)
+#
+# Context paths are injected at startup via envsubst:
+#   $NPCI_CONTEXT     (default: a2a)
+#   $PARTNER_CONTEXT  (default: a2a-partner)
+#   $CERTSIM_CONTEXT  (default: a2a-certsim)
+#   $APISIM_CONTEXT   (default: a2a-apisim)
+#   $BANKAGENT_CONTEXT (default: a2a-bankagent)
+#   $BANKSIM_CONTEXT   (default: a2a-banksim)
+#
+# DO NOT use this in production — no HSTS, no TLS, no mTLS, no rate
+# limit zone. The hardening lives entirely in nginx.conf.
+# ═══════════════════════════════════════════════════════════════════════════
+
+server_tokens off;
+
+upstream npci_backend     { server backend:8000; }
+upstream npci_frontend    { server frontend:80; }
+upstream partner_backend  { server partner_backend:8001; }
+upstream partner_frontend { server partner_frontend:80; }
+server {
+    listen 80 default_server;
+    server_name _;
+    client_max_body_size 50M;
+
+    location = / { return 302 /${NPCI_CONTEXT}/; }
+
+    # ── A2A protocol surface — exposed at ROOT ────────────────────────────
+    # These are partner-facing protocol endpoints. NOT parameterized —
+    # they are part of the A2A API contract that partners call.
+    location /.well-known/ {
+        proxy_pass http://npci_backend;
+        proxy_set_header Host       $host;
+        proxy_set_header X-Real-IP  $remote_addr;
+    }
+
+    location /a2a-rpc/ {
+        proxy_pass http://npci_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Host             $host;
+        proxy_set_header X-Real-IP        $remote_addr;
+        proxy_set_header X-Forwarded-For  $proxy_add_x_forwarded_for;
+        proxy_read_timeout 300s;
+    }
+
+    location /api/a2a/ {
+        proxy_pass http://npci_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Host             $host;
+        proxy_set_header X-Real-IP        $remote_addr;
+        proxy_set_header X-Forwarded-For  $proxy_add_x_forwarded_for;
+        proxy_read_timeout 300s;
+    }
+
+    # ── NPCI Platform — /${NPCI_CONTEXT}/* ────────────────────────────────
+    location /${NPCI_CONTEXT}/.well-known/ {
+        rewrite ^/${NPCI_CONTEXT}/(.*)$ /$1 break;
+        proxy_pass http://npci_backend;
+        proxy_set_header Host       $host;
+        proxy_set_header X-Real-IP  $remote_addr;
+    }
+
+    location /${NPCI_CONTEXT}/api/ws/ {
+        rewrite ^/${NPCI_CONTEXT}/(.*)$ /$1 break;
+        proxy_pass http://npci_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade    $http_upgrade;
+        proxy_set_header Connection "Upgrade";
+        proxy_set_header Host       $host;
+        proxy_set_header X-Real-IP  $remote_addr;
+        proxy_read_timeout 86400s;
+    }
+
+    location /${NPCI_CONTEXT}/api/logs/stream {
+        rewrite ^/${NPCI_CONTEXT}/(.*)$ /$1 break;
+        proxy_pass http://npci_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Host       $host;
+        proxy_set_header X-Real-IP  $remote_addr;
+        proxy_set_header Connection '';
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 3600s;
+        chunked_transfer_encoding on;
+    }
+
+    location /${NPCI_CONTEXT}/api/ {
+        rewrite ^/${NPCI_CONTEXT}/(.*)$ /$1 break;
+        proxy_pass http://npci_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Host             $host;
+        proxy_set_header X-Real-IP        $remote_addr;
+        proxy_set_header X-Forwarded-For  $proxy_add_x_forwarded_for;
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+    }
+
+    location /${NPCI_CONTEXT}/ {
+        proxy_pass http://npci_frontend;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade    $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host       $host;
+        proxy_cache_bypass          $http_upgrade;
+
+        # NO sub_filter HERE, DELIBERATELY. The <base href> that anchors the
+        # SPA's relative asset URLs is injected by the frontend IMAGE, in
+        # frontend/nginx.conf.template — see the long comment there for what
+        # breaks without it and how to verify.
+        #
+        # It used to be done at this hop instead, which fixed the deployed
+        # stack and left the image serving a blank page to anyone running it
+        # directly. Adding it back here would produce TWO <base> tags: the
+        # first wins in every browser, but the duplicate is exactly the kind of
+        # thing that survives review and confuses the next debugging session.
+        #
+        # `proxy_set_header Accept-Encoding ""` went with it: it existed only so
+        # sub_filter could see an uncompressed body. If any rewriting is ever
+        # reintroduced at this hop, it has to come back too.
+    }
+
+    # ── Partner Platform — /${PARTNER_CONTEXT}/* ─────────────────────────
+    location /${PARTNER_CONTEXT}/api/ {
+        rewrite ^/${PARTNER_CONTEXT}/(.*)$ /$1 break;
+        proxy_pass http://partner_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Host             $host;
+        proxy_set_header X-Real-IP        $remote_addr;
+        proxy_set_header X-Forwarded-For  $proxy_add_x_forwarded_for;
+        proxy_read_timeout 300s;
+    }
+
+    location /${PARTNER_CONTEXT}/.well-known/ {
+        rewrite ^/${PARTNER_CONTEXT}/(.*)$ /$1 break;
+        proxy_pass http://partner_backend;
+        proxy_set_header Host  $host;
+    }
+
+    location /${PARTNER_CONTEXT}/ {
+        proxy_pass http://partner_frontend;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade    $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host       $host;
+        proxy_cache_bypass          $http_upgrade;
+    }
+
+    # ── Cert Simulator UI — /${CERTSIM_CONTEXT}/* ────────────────────────
+    # Cert-agent requires auth on every endpoint. The UI is an internal
+    # tool with no login page, so nginx injects the internal token on
+}

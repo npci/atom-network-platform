@@ -1,0 +1,81 @@
+# Reranker sidecar — the ONLY place torch and sentence-transformers are
+# installed in this platform.
+#
+# WHY THIS FILE EXISTS. The A2A compliance SBOM reported 6 violations that all
+# trace to one root cause: `sentence-transformers` (CVE-2026-68770, CVSS 9.8)
+# and `torch` (five CVEs: CVE-2025-3121, -3000, -3136, -4287, -2149) were
+# installed in the backend image even though the reranker defaults to OFF. A
+# scanner reports what is PRESENT, not what is reachable — and it is right to,
+# because a config flag is all that separates "dormant" from "live".
+#
+# Deleting the reranker was not acceptable: it is worth +5-15pp recall@10.
+# So the capability moves here instead of disappearing. The backend keeps the
+# feature via `reranker_backend=remote`, an HTTP path that was ALREADY fully
+# implemented and production-proven (app/rag/reranker.py::_rerank_remote —
+# see the 2026-05-03 production note about payload capping in that function).
+# Net effect: identical retrieval quality, and the backend SBOM no longer
+# contains torch at all.
+#
+# This service is scanned SEPARATELY and on its own merits. That is the honest
+# outcome, not a loophole: the findings are still visible, but they are now
+# attached to a 1-endpoint container with no database, no user data, no auth
+# surface and no internet egress — where "malicious model artifact" and
+# "hostile tensor input" are governed by the operator-pinned model below,
+# rather than to the component that holds the whole platform's data.
+
+fastapi==0.141.1
+uvicorn[standard]==0.32.1
+pydantic==2.11.10
+
+# ── The model stack ──────────────────────────────────────────────────────────
+# CPU wheel index. THIS LINE AND THE torch PIN ARE INSEPARABLE — do not move
+# one without the other. Plain PyPI torch 2.13.0 declares
+# `cuda-toolkit[...]==13.0.3; platform_system == "Linux"` UNCONDITIONALLY on
+# Linux (2.9.x gated it to x86_64), which drags in ~3 GB of NVIDIA wheels for
+# a platform that never calls torch.cuda. The +cpu artifacts on
+# download.pytorch.org are separate builds whose METADATA lists 10
+# Requires-Dist entries with ZERO cuda/nvidia/triton among them.
+#
+# That 3 GB was not merely waste: it is what made the backend image 5.4 GB and
+# exhausted the GitHub runner's disk. Keeping it out of the backend entirely is
+# the second benefit of this split.
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.13.0+cpu
+
+# UPGRADED 3.3.1 -> 6.0.0 to close CVE-2026-68770 (CVSS 9.8), the finding this
+# whole file was created to contain. Moving the package here narrowed the blast
+# radius; it did not fix the defect, and a 9.8 row stays a 9.8 row wherever it
+# is attached. This is the actual fix.
+#
+# THE DEFECT (per OSV, which is the authoritative record here — the NPCI
+# advisory page carries no version range). `import_module_class` in
+# sentence_transformers/util/misc.py guarded dynamic imports with a condition
+# containing `or os.path.exists(model_name_or_path)`, which SATISFIES the trust
+# gate for any path that exists on disk — so `modeling_*.py` referenced from a
+# model directory's modules.json executed at load time even with
+# trust_remote_code=False. OSV records last_affected 5.5.1, fixed in commit
+# ae1acc3; 6.0.0 is past it. CWE-94, and the fix removes the bypass rather than
+# guarding it.
+#
+# The sidecar was almost certainly never reachable through this: the model name
+# is operator-set from RERANKER_MODEL, never taken from the request (see
+# app/main.py and test_model_name_is_not_taken_from_the_request). But "not
+# reachable" is an argument, not a remediation, and it is exactly the argument
+# that failed to clear this finding the first time.
+#
+# WHY 6.0.0 AND NOT 5.6/5.7. The sidecar uses exactly one API,
+# CrossEncoder(model).predict(pairs), which is stable across these releases,
+# so the version choice is about the transitive closure rather than the code.
+# 5.6.0/5.7.0 also clear this advisory and would be the smaller jump; they
+# allow transformers>=4.41,<6, so a resolve there can legitimately land on a
+# 4.x transformers. 6.0.0 requires transformers>=5.0.0, which additionally
+# floors out CVE-2026-1839 (fixed 5.0.0) and CVE-2026-4372 (fixed 5.3.0) and
+# resolves to 5.16.1 here, clear of CVE-2026-5241 (5.2.0 only). Pinning the
+# higher floor is what makes that durable — pick 5.7 instead and the
+# transformers CVEs come back on the next resolve.
+#
+# THE torch PIN ABOVE DOES NOT CHANGE. 6.0.0 requires only torch>=2.2, so
+# 2.13.0+cpu satisfies it and the CUDA-avoidance note above still holds
+# verbatim. Do not "helpfully" bump torch alongside this: the +cpu index and
+# that exact version are what keep ~3 GB of NVIDIA wheels out.
+sentence-transformers==6.0.0

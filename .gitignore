@@ -1,0 +1,50 @@
+# Root ignores — OS, editor, and language artifacts that no subtree file covers.
+# Component-specific rules stay with their component:
+#   backend/.gitignore, frontend/.gitignore, logs/.gitignore,
+#   nginx/{ssl,acme}/.gitignore
+#
+# This file exists because there was none. backend/.gitignore ignores
+# __pycache__/ within backend/ only, so bytecode generated anywhere else in the
+# tree was committable — which is exactly how 24 .pyc files reached a public
+# branch.
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+.venv/
+venv/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editors
+.idea/
+.vscode/
+.run/
+*.swp
+*~
+
+# Build output and runtime logs — regenerated, never source.
+frontend/dist/
+backend/logs/
+
+# Generated evaluation-run reports (timestamped artifacts, not source)
+backend/tests/eval/eval_reports/
+
+# Environment — never commit a populated env file
+.env
+.env.*
+!.env.example
+
+# Defensive only. These names have held live credentials in working trees:
+# `*.delete` (a GitLab PAT), cj.txt, .demo_mfa_secret. The real fix is to REVOKE
+# the token and delete the file — these entries only stop a `git add -A` from
+# writing a credential into history meanwhile.
+*.delete
+cj.txt
+.demo_mfa_secret

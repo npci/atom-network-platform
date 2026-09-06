@@ -1,0 +1,6 @@
+# Runtime data — created at first `up`, regenerated, never source.
+# Committed so a fresh clone HAS the directory: a missing bind-mount source
+# is created by Docker as a ROOT-OWNED directory, which the container then
+# cannot write to (see DEPLOYMENT_GUIDE.md section 11.1).
+*
+!.gitignore

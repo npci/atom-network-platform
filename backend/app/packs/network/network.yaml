@@ -1,0 +1,940 @@
+key: network
+version: '1.0'
+prompt_blocks:
+  hop_note_examples: "'Cust scans QR, enters mob no/virtual address' or 'app executes RBA basis received model rules'"
+  hard_rules: '# NETWORK DOCUMENT HARD RULES (must follow; violations fail review)
+
+
+    ## Error Codes
+
+    - All transaction error codes MUST use the network alphanumeric format: U01-U99, Z0-Z9, RB, XD, XT, YA-YZ.
+
+    - NEVER use HTTP status codes (400, 401, 403, 404, 500, 502, 503) for transaction errors.
+
+    - Every error code MUST be classified as "TD" (Technical Decline) or "BD" (Business Decline). Never
+    "error", "failure", or other free-form labels.
+
+    - Every error code row MUST identify the responsible entity: PSP / Authority / Issuer Bank / Beneficiary
+    Bank / Remitter.
+
+
+    ## Functional Requirements
+
+    - Every BRD/Tech Spec functional requirement MUST be numbered FR-01, FR-02, FR-03, ... (zero-padded
+    to 2 digits).
+
+    - A BRD must have at least 6 functional requirements.
+
+    - Each FR must be a single declarative sentence beginning with "The system shall", "The Authority shall",
+    "PSP Bank must", or a similar explicit subject.
+
+
+    ## Obligation Language
+
+    - Use active obligation verbs: "The Authority shall", "PSP Bank must", "Issuer Bank shall", "The system
+    shall".
+
+    - NEVER use vague phrasing: "the system will", "ideally", "should probably", "in some cases".
+
+    - Every flow step must name the responsible actor (PSP Bank / Authority / Issuer Bank / Customer /
+    Merchant).
+
+
+    ## Placeholders
+
+    - Final output must contain ZERO placeholder text. Never emit: "TBD", "TODO", "XXX", "<placeholder>",
+    "N/A" (unless truly not applicable and stated so), "lorem ipsum".
+
+    - If a detail is genuinely unknown, state the assumption explicitly with an "Assumption:" prefix.
+
+
+    ## Currency & Limits
+
+    - Use "INR" for amounts (e.g., "INR 2,000 per transaction"). Do not use "$", "Rs.", or "Rs".
+
+    - Use the "₹" symbol only in customer-facing display mockups, never in API specs or obligation text.
+
+
+    ## API & Field Naming
+
+    - Request API names use the form "ReqXxxYyy" (PascalCase after Req).
+
+    - Response API names use the form "RespXxxYyy".
+
+    - Field names use camelCase (e.g., payerVpa, txnAmount), never snake_case or PascalCase.
+
+    - Every field row must specify: type, mandatory (Y/N), dLength, description.
+
+
+    ## XSD / Schema
+
+    - XSD element names use PascalCase (e.g., <PayerDetails>).
+
+    - XSD attributes use camelCase.
+
+    - All amount fields use xs:decimal with total/fraction digits restrictions; never xs:string for amounts.
+
+    '
+  api_design_principles: "# NETWORK API / FLOW / TEST-CASE / ERROR-CODE DESIGN PRINCIPLES\n\nDistilled, always-on\
+    \ design principles for Phase A (API design, flow design,\ncertification test-case design). These\
+    \ are the *rules* — the full catalogues\n(API list, element/attribute reference, enumerations, error-code\
+    \ tables, worked\nexamples, end-to-end flows) live in RAG under the `api_design_knowledge` category\n\
+    (`knowledge_base/api_design_knowledge/{01_api_and_flow,02_test_case,03_error_code}_design.md`)\nand\
+    \ the machine corpus in `backend/app/excel_testcase_engine/network_specs/`. Retrieve\nthose for specifics;\
+    \ obey the principles below always. **Never invent API names,\nfields, enum values, or error codes\
+    \ — ground them in the catalogue or mark them\nlow-confidence / requiring Authority allocation.**\n\n---\n\
+    \n## 1. API & naming conventions\n\n- Every API is a `Req<Name>` + `Resp<Name>` pair (`ReqTransfer`/`RespTransfer`).\n\
+    - Families by stem: mandate (`Mandate`, `AuthMandate`, `MandateConfirmation`),\n  listing/meta (`List<Thing>`\
+    \ → `ReqListPsp`, `ReqListKeys`), confirmation\n  (`<Thing>Confirmation`). Debit/credit legs are suffixed\
+    \ (`ReqTransfer_Debit`).\n- Single namespace for all messages: `http://example.org/network/schema/`.\n- Request\
+    \ carries full intent; response carries `result` + per-participant `Ref`.\n- Synchronous `Ack` on\
+    \ receipt, ahead of the asynchronous `Resp`.\n\n## 2. Message envelope (reuse it)\n\nReuse the shared\
+    \ envelope: `Head` / `Meta` / `Txn` / `Payer` / `Payees` →\n`Resp` / `Ref`. Add new elements/attributes\
+    \ only where an existing one cannot\ncarry the data — justify and version-gate. Counterparties are\
+    \ addressed by\nVPA / global identifier and resolved by the Authority (`ReqAuthDetails`); a feature never\n\
+    requires the initiator to know the real account number. Credentials are captured\non-device by the\
+    \ Common Library and travel as an encrypted/signed `<Cred>` block —\nnever raw on the wire.\n\n##\
+    \ 3. Core design principles\n\n1. XML over HTTPS, UTF-8, stateless — each message carries its own\
+    \ context.\n2. Idempotency via `msgId`/`Txn.id` — a duplicate returns the same response, never\n \
+    \  re-executes.\n3. Credential encryption (base64 + the Authority public key); mandates digitally signed\n\
+    \   (`Cred type=\"Network-Mandate\" subType=\"DS\"`).\n4. Multi-party / multi-payee: `Payees` is a list;\
+    \ one `Ref` per participant;\n   `PARTIAL` covers mixed outcomes.\n5. Sync ack + async resp → timeout\
+    \ → `ReqChkTxn` → deemed handling.\n6. Reversal (repairs a failed/timed-out leg, `orgTxnId` back-ref)\
+    \ ≠ refund\n   (merchant-initiated return). Risk scores ride in-band.\n\n## 4. Design ideology — reuse\
+    \ → extend → invent\n\nA new top-level API is **rare** and carries a high bar: every API is one contract\n\
+    the whole ecosystem must implement identically. Governing instincts:\n\n- **Reuse before extend before\
+    \ invent.** Most features ride on an existing message\n  (new `Txn.type`/`subType`/`purpose`, new\
+    \ `Rule`/`Tag`, new `Cred` type, new\n  optional element).\n- **One contract for everyone** — unambiguous,\
+    \ mandatory-vs-optional explicit.\n- **Backward compatible & version-gated** — changes are *additive*;\
+    \ existing\n  required semantics never change; new behaviour gated by `ver`; ecosystem rollout\n \
+    \ controlled via the capability directory (`<Version>` entry in\n  `RespListPsp`/`RespListAccPvd`\
+    \ + `prodType`/format flags).\n- Four-party model & role clarity (Payer PSP, Payee PSP, Remitter bank,\n\
+    \  Beneficiary bank, the Authority as switch). Standard two-factor auth via `Creds`.\n- Full lifecycle (idempotency,\
+    \ retries, timeout/ChkTxn, reversal, deemed);\n  stateful features get a state object + create/modify/revoke\
+    \ lifecycle (as\n  mandates have the UMN). Define money movement & settlement for financial\n  features.\
+    \ Align to RBI limits/consent. Minimal data, one unambiguous meaning\n  per field.\n\n### Decision\
+    \ procedure (given a feature)\n1. Classify (financial / mandate-stateful / meta / auth / registration\
+    \ / lifecycle).\n2. Map actors & flow — who initiates, who authorises, how money moves; sketch hops.\n\
+    3. Decide reuse vs extend vs new (tree below).\n4. Choose the carrier (existing enum value, or new\
+    \ `Rule`/`Tag`/optional/`Cred`, or\n   — last resort — a new message).\n5. Define the data delta (where\
+    \ each new field hangs, M/O, format, `ver` gating).\n6. Define auth & consent (cred types; pre-approved/signed;\
+    \ what the customer sees).\n7. Define lifecycle & failure handling (idempotency key, timeout/ChkTxn,\
+    \ reversal,\n   deemed; state object + transitions for stateful features).\n8. Define settlement &\
+    \ reversal (financial).\n9. Set version & compatibility (confirm additive; older-participant behaviour).\n\
+    10. Define response/error codes (§6) and certification scenarios (§5).\n\n### Reuse → extend → invent\
+    \ tree (stop at first fit)\n1. Existing API + existing/new `Txn.type`/`subType`/`purpose`? → use it.\n\
+    2. Extra data, same interaction? → optional element/attribute or `Rule`/`Tag`,\n   version-gated.\n\
+    3. New funding instrument / account behaviour? → new `ACTYPE` on `Ac`, not a new API.\n4. New auth\
+    \ method? → new `Cred type/subType`, not a new API.\n5. New stateful object with its own lifecycle?\
+    \ → a new mandate-style API *family*\n   with a UMN-like id.\n6. Genuinely new interaction no existing\
+    \ message expresses? → new `Req/Resp` pair\n   (high bar — justify why 1–5 don't fit; keep the shared\
+    \ envelope).\n\n### New-API checklist\nDecide reuse/extend/invent first → name `Req/Resp` by analogy\
+    \ → reuse envelope →\npick `type`/`subType` → specify credentials → define the flow (incl.\ntimeout→ChkTxn→deemed)\
+    \ → confirm backward compatibility → list response & error\ncodes → define certification scenarios\
+    \ → state confidence + source (leave XML\nblank where ungrounded).\n\n## 5. Certification test-case\
+    \ design\n\n- Pack is one workbook organised **role → subset → test case**. Roles & id\n  prefixes:\
+    \ Remitter `RE_*`, Beneficiary `BE_*` (Issuer); Payer PSP `PR_*`,\n  Payee PSP `PE_*` (Acquirer);\
+    \ Meta `MT_*` (both); Mandate `MA_MT_PR_*` /\n  `MA_MT_RE_*`. **Never renumber existing ids** (retired\
+    \ ids keep the slot).\n- A new feature introduces a **new subset**: next free letter, one-line\n \
+    \ description, scope (acquirer/issuer/both), enumerated ids, count.\n- `DETAILS` block fixed fields:\
+    \ API Involved, Type, Approval Type\n  (Pre/Non-Pre-Approved), Payer Handle, Payee Handle (VPA | Aadhaar\
+    \ | A/c+IFSC |\n  Mobile[+MMID]).\n\n### Scenario discovery (goal: completeness — prune duplicates,\
+    \ never miss a failure mode)\n1. Decompose the feature into its ordered API exchange (every hop, every\
+    \ actor).\n2. For every hop enumerate failure modes: success, timeout, business decline,\n   validation/malformed,\
+    \ system exception, negative-ACK. A hop with no failure\n   case is almost always an omission.\n3.\
+    \ Walk every scenario lens — most features touch 8–12: happy paths;\n   auth & credentials; limits\
+    \ & caps; state lifecycle (incl. illegal transitions);\n   idempotency/duplicate/replay; timeout/deemed/reversal/settlement;\
+    \ risk & fraud;\n   validation/malformed; account & instrument types; channels & devices; roles\n\
+    \   under test; regulatory/compliance/account-status; disputes (UDIR);\n   identity/registration/resolution;\
+    \ concurrency/ordering; interoperability/partner\n   permutations; feature eligibility/gating; principal↔dependent\
+    \ management;\n   notifications.\n4. Cross-product with coverage dimensions: Outcome (Success/Failure/Timeout/\n\
+    \   Deemed/neg-ACK) × Handle pair × Approval type × Role-under-test × Txn type/\n   sub-type × Initiation\
+    \ (Bank/Authority) × Channel. Drop impossible combos (say why).\n5. De-duplicate and tag each with a `coverage_tag`\n\
+    \   (`happy_path`/`timeout`/`decline`/`neg_ack`/`deemed`/`revoke`/`partial`) and the\n   expected\
+    \ `respCode`/`errCode` (§6).\n6. Completeness check: every hop has ≥1 success + ≥1 failure; every\
+    \ role appears as\n   system-under-test in success and its own failure modes; every new field/enum/cred\n\
+    \   type has a positive case and a validation-failure case. List intentional\n   exclusions with a\
+    \ one-line reason.\n\nEmit the machine form the platform consumes (`TestCaseStub` + `FlowDefinition`\
+    \ per\n`docs/cert_simulator_contract/` and\n`excel_testcase_engine/schemas/workbook_plan.py`). The\
+    \ minimum variant count per API\nis encoded in `network_specs/coverage_matrix.json` — a new API declares\
+    \ its required\nvariants the same way.\n\n## 6. Error / response code design\n\nThree response attributes:\
+    \ `result` (`SUCCESS|FAILURE|PARTIAL|DEEMED`, on `Resp`),\n`errCode` (network service layer or PSP, mandatory\
+    \ when `result=FAILURE`), `respCode`\n(bank per-participant on `Ref`, `00`=success). The same failure\
+    \ can surface twice\n(bank `respCode` → network `errCode`, e.g. `ZM`→`UM8`) — **design both ends.**\n\n\
+    Prefix taxonomy (letter = validation/decline context): `00` success; `U..` network\nservice-layer; `T..`/`E..`/`R..`/`D..`/`G..`/`K..`/`BA..`/`IM..`/`OR..`\
+    \ validation\nfamilies; mandate validation (`M*`,`HV`,`PA/PR/PY`,`RM`); `Q..` query/mandate-auth;\n\
+    `A2/A3/A4..` UIDAI; `V../X../Y../Z..` bank decline (ISO-8583-style, often\nremitter/beneficiary pairs).\n\
+    \n### Rules for choosing codes\n1. **Never invent a code** — select from the catalogue\n   (`network_specs/error_codes.json`\
+    \ is the source of truth).\n2. Respect `applies_to` — a code belongs to specific APIs (no mandate\
+    \ code on a Pay\n   leg, no Meta code on a financial leg).\n3. Match category to outcome: success→`00`;\
+    \ business decline→bank decline code\n   (`Z*/Y*/X*/B*/V*/Q*`); timeout→`UP` or a `U`-timeout\n  \
+    \ (`U10/U67/U68/U85/U87/U88`); malformed→a validation prefix (`T*/E*/R*/G*/BA*`);\n   deemed→reversal\
+    \ `96` / settlement `R9/U9`.\n4. Design both ends (bank `respCode`s + network `errCode`s + the forwarding\
+    \ mapping).\n5. Pair remitter/beneficiary variants where the catalogue does (`XH`/`XI`,\n   `YE`/`YF`,\
+    \ `ZX`/`ZY`).\n6. A genuinely new code is proposed with a context-chosen prefix, marked **requiring\n\
+    \   Authority allocation**, and never used in a test case until allocated."
+  error_codes: '## Example error codes (reference only — use ones relevant to the feature)
+
+    | Code | td_bd | Entity | Description |
+
+    |------|-------|--------|-------------|
+
+    | U09  | TD    | PSP    | Invalid VPA format |
+
+    | U16  | TD    | Authority | Risk threshold exceeded |
+
+    | U30  | BD    | Issuer | Do not honour |
+
+    | U67  | BD    | PSP    | Collect request expired |
+
+    | Z9   | TD    | Authority | Duplicate transaction ID |
+
+    | RB   | TD    | Remitter Bank | Reversal by remitter bank |
+
+    | XD   | BD    | Authority | Debit has already been done |
+
+    '
+  authority: Authority
+  evidence_sources: Authority / Regulator
+  evidence_heading: Retrieved authority corpus evidence
+  citation_example: PSPs must revoke within 24h [S2].
+  reference_kind: circular
+  claim_kinds: regulatory obligation, error-code, API name, or dispute-SLA claim
+  document_register: regulated authority document
+  platform_name: the Network Change Management Platform
+  # Certification-workbook display labels — identical to the values the
+  # excel_testcase_engine used to hardcode, so network output is unchanged.
+  test_case_scope: v2.0
+  initiator_authority_label: Authority
+  initiator_participant_label: Bank
+  role_as_label: PSP as
+  domain_name: Network
+  ecosystem_description: The Authority operates the network, India's real-time payment infrastructure.
+  ecosystem_actors: banks, PSPs, TPAPs
+  compliance_note: Any new network feature must comply with RBI guidelines and be backward-compatible
+    with the existing network ecosystem (PSPs, banks, TPAPs).
+  regulatory_body: RBI
+  market_comparables: global payment networks (Visa, Mastercard, Alipay, etc.)
+  market_context: the Indian digital payments context
+  product_operating_extra: '- **Impact on SGF** — effect on the Settlement Guarantee Fund
+
+    - **Impact on FRM** — effect on Fraud Risk Management systems'
+  regulatory_claim_label: Authority/RBI guideline
+  numbered_citation_example: The per-transaction limit is ₹1 lakh for most banks [3].
+  corpus_label: authority corpus
+  docgen_generic_domain_notes: "\n═══════════════════════════════════════════════════════════\nNETWORK DOMAIN\
+    \ KNOWLEDGE — USE ALL YOU HAVE; KEY FACTS BELOW\n═══════════════════════════════════════════════════════════\n\
+    ECOSYSTEM PARTICIPANTS:\n  · The Authority — operates the network switch and Common Library (CL). Issues\
+    \ specifications.\n  · PSP Bank — Payment Service Provider. Hosts the network app, initiates ReqTransfer\
+    \ to the Authority.\n  · Issuer/Remitter\
+    \ Bank — Payer's bank. Authenticates, debits customer account.\n  · Beneficiary/Payee Bank — Recipient's\
+    \ bank. Credits customer account.\n  · Network App — Customer-facing mobile application (e.g., PhonePe,\
+    \ GPay, BHIM).\n\nCORE NETWORK MESSAGE TYPES:\n  · REQ_TRANSFER / RESP_TRANSFER — Payment request/response.\
+    \ Auth\
+    \ → Debit → Credit → Confirmation.\n  · REQ_CHK_TXN — Transaction status check. Used for timeout/fallback\
+    \ resolution.\n  · REQ_LIST_ACCOUNT / LIST_ACCOUNT — Account listing for registration.\n  · REQ_REG_MOB\
+    \ / REG_MOB — Mobile/device registration (used in biometric setting).\n  · REQ_AUTH_DETAILS / RESP_AUTH_DETAILS\
+    \ — Authentication detail exchange.\n  · REQ_ACTIVATION — Device onboarding, biometric activation/rotation/deactivation.\n\
+    \  · REQ_MANDATE — Mandate creation.\n  · REQ_BAL_ENQ — Balance enquiry.\n  · REQ_VAL_ADD — VPA validation.\n\
+    \nSTANDARD REQ_TRANSFER FLOW:\n  Stage 1 — Auth:    Network app captures PIN/biometric → CL encrypts\
+    \ → PSP sends ReqTransfer to the Authority.\n  Stage 2 — ReqAuth: The Authority sends REQ_AUTH_DETAILS\
+    \ to Acquirer Bank; PSP responds RESP_AUTH_DETAILS.\n  Stage 3 — Debit:   The Authority sends debit\
+    \ request to Remitter/Issuer Bank; bank sends RESP_TRANSFER.\n  Stage 4 — Credit:  The Authority routes\
+    \ credit to Beneficiary Bank; bank sends RESP_TRANSFER.\n  Stage 5 — Confirm: The Authority sends\
+    \ confirmation to Payer PSP and Payee PSP.\n\nOTHER API FLOW: APP →\
+    \ Payer PSP → Authority → Payee PSP → Authority → Payer PSP → APP.\n\nKEY COMPONENTS:\n  · CRED Block  — Encrypted\
+    \ credential block containing auth data sent from PSP to the Authority.\n  · CL (Common Library) —\
+    \ Authority-provided SDK integrated in network apps for secure auth.\n  · Authority Switch — Central\
+    \ routing engine for all network messages.\n  · TEE / Secure Enclave — Hardware-backed secure storage on device.\n  · Nonce-based\
+    \ challenge — Cryptographic replay-attack prevention mechanism.\n  · VPA — Virtual Payment Address\
+    \ (e.g., user@bank).\n  · DEEMED status — Transaction where credit is unconfirmed; settled asynchronously.\n\
+    \  · refCategory='05' — Designates biometric-authenticated transactions.\n  · clVersion — CL version\
+    \ field indicating biometric support (e.g., 2.36 in ListAccPvd).\n\nDISPUTE MANAGEMENT:\n  · Standard\
+    \ network dispute process applies unless explicitly changed by the BRD.\n  · \"No change in dispute management\"\
+    \ is the default for most feature changes.\n"
+  # Domain retrieval vocabulary appended by app/rag/query_rewriter.py to its
+  # (neutral) system prompt under a "Domain vocabulary" heading. Verbatim the
+  # domain expertise that used to be hardcoded in
+  # app/prompts/rag/query_rewriter/rewriter_system.md.
+  retrieval_domain_expertise: |-
+    You are a network domain expert. The corpus holds Authority circulars, RBI
+    guidelines, past BRDs/TSDs, API specs, XSD schemas, error codes, FAQs,
+    and certification testcases.
+
+    1. Expand informal/marketing terms to official Authority terms:
+       - "AutoSplit" / "split payment" -> "split settlement", "multi-party beneficiary transaction"
+       - "Smart OTP" / "auto-approve" -> "AFA additional factor authentication", "OTP validation"
+       - "Instant refund" -> "reversal transaction", "credit adjustment", "UDIR"
+       - "Auto-renew" / "recurring" -> "mandate creation", "recurring e-mandate", "auto-debit"
+
+    2. Include relevant network API names where obviously applicable:
+       ReqTransfer, RespTransfer, ReqAuth, RespAuth, ReqChkTxn, RespChkTxn, ReqMandate,
+       RespMandate, ReqListMandate, ReqRevokeMandate, ReqListAccount, ReqBalEnq,
+       ReqListKeys, ReqRegMob, ReqSetCre, ReqOtp
+
+    3. Include relevant error-code families where obviously applicable:
+       XB / XC / Y1 (debit/credit failures), Z4 / Z5 (expired mandate),
+       ZA (duplicate/already processed), U30-U69 (PSP errors)
+
+    4. Include regulatory vocabulary:
+       RBI master direction, PSS Act, KYC guidelines, AFA compliance,
+       TAT harmonisation, dispute resolution, liability framework
+  # ── Docgen genericisation sweep: pack-driven vocabulary that used to be ──
+  # hardcoded in app/docgen/agents/pipeline.py and app/docgen/document_guides.py.
+  # Values are verbatim the strings that lived in code, so network output is
+  # unchanged by the move.
+  docgen_circular_letterhead_note: Authority letterhead with OC reference number in format AUTH/NET/OC
+    No. XXX/2025-26 and issue date.
+  docgen_circular_addressees: 'Complete recipient list: All Member Banks, Payment Service Providers,
+    Third Party Application Providers, and Merchants.'
+  docgen_fallback_pricing_instructions: Describe the pricing structure for PSPs, merchants, and issuers.
+    Include MDR, interchange, and any Authority facilitation fee.
+  docgen_schema_namespace_note: '- Every XML-based network API namespace must be xmlns:network="http://example.org/network/schema/"'
+  docgen_ownership_roles: |-
+    OWNERSHIP MODEL — DOMAIN ROLE RESPONSIBILITIES (extends the layer model in the rules above):
+      · Issuer Bank   = customer auth, account validation, debit, KYC.
+      · Beneficiary Bank = credit, beneficiary validation.
+  docgen_envisaged_changes_role_label: Issuer Bank
+  docgen_envisaged_changes_role_responsibilities: customer auth, account validation, debit, balance
+    check, KYC
+  docgen_servicing_transaction_phrase: authenticated debit requests
+  docgen_risk_scenario_examples: collusion, replay/duplicate, mandate abuse, unauthorised debit, social
+    engineering, velocity abuse
+  docgen_business_aggregate_examples: Circle, Mandate, Wallet, Disbursement, etc.
+  docgen_sla_flow_examples: enrollment, transaction, debit, credit, dispute lookup, settlement
+  # ── Genericity-sweep blocks: domain text moved verbatim out of neutral code ──
+  authority_full: the Authority (the network's central authority)
+  partner_descriptor: A network partner (bank, PSP, or TPAP)
+  partner_label: partner bank
+  domain_descriptor: the network's real-time payment system
+  # document_validator: how a non-canonical API placeholder should be fixed.
+  canonical_api_name_note: The network canonical form is 'ReqXxxYyy' / 'RespXxxYyy' (PascalCase
+    after Req/Resp). Replace with the actual network API being extended, or rename to canonical
+    form.
+  # decline_designer: who can fail on the wire, the worked perspective example,
+  # and the few-shot output row (verbatim from the old brd_prompt.md).
+  decline_party_enumeration: Payer PSP, the Authority switch, Payee PSP, Remitter/Issuer Bank,
+    Beneficiary Bank
+  decline_perspective_example: A credit-side timeout at the Beneficiary Bank is what reverses
+    money in production — as essential as insufficient balance.
+  decline_example_row: '{"api":"<primary api>","owning_entity":"Remitter Bank",
+
+    "observing_entity":"Payer PSP","stage":"debit","failure_type":"decline",
+
+    "condition":"available balance < amount","required_behavior":"reject; no reversal; notify
+    payer",
+
+    "reachable":true,"rationale":"every debit can hit insufficient funds"}'
+  # proposals_extractor: the two error-code MUST-DO bullets (verbatim).
+  proposals_error_code_rule: |-
+    - Every error code MUST use the network alphanumeric format (U01-U99, Z0-Z9, RB, XD, XT, Y[A-Z]).
+      NEVER emit HTTP status codes (400, 401, 500) as error codes.
+  proposals_error_class_rule: '- Every error code MUST have td_bd = "TD" (Technical Decline)
+    or "BD" (Business Decline).'
+  # proposals_extractor: the few-shot example shape — verbatim the old
+  # agents/proposals_extractor/proposals_schema_example.md content.
+  proposals_few_shot_example: |-
+    {
+      "apis": [
+        {"name": "ReqTransfer", "response": "RespTransfer", "initiator": "PSP Bank", "description": "..."}
+      ],
+      "request_fields": [
+        {"name": "payerVpa", "type": "String", "mandatory": true, "dLength": "255", "description": "Payer's virtual payment address"}
+      ],
+      "response_fields": [
+        {"name": "txnId", "type": "String", "mandatory": true, "dLength": "35", "description": "..."}
+      ],
+      "error_codes": [
+        {"code": "U09", "td_bd": "TD", "entity": "PSP", "description": "Invalid VPA format"},
+        {"code": "U67", "td_bd": "BD", "entity": "PSP", "description": "Collect request expired"}
+      ],
+      "auth_method": "Network PIN / Biometric / OTP",
+      "transaction_limit": "INR 2,000 per transaction (initial), INR 100,000 after 24h cooling period",
+      "flow_sequence": [
+        "Step 1: Customer — initiates payment on PSP app",
+        "Step 2: PSP Bank — sends ReqTransfer to the Authority",
+        "Step 3: Authority — routes to Issuer Bank",
+        "Step 4: Issuer Bank — validates and responds"
+      ],
+      "current_state": "Today customers ...",
+      "limitations": "The existing flow suffers from ...",
+      "functional_requirements": [
+        "FR-01: The system shall allow ...",
+        "FR-02: The Authority shall validate ...",
+        "FR-03: PSP Bank must ...",
+        "FR-04: ...",
+        "FR-05: ...",
+        "FR-06: ..."
+      ],
+      "dispute_framework": "Standard UDIR applies / new dispute type XYZ introduced",
+      "user_journey_plain": [
+        "Step 1: Customer opens PSP app",
+        "Step 2: Customer selects 'Pay by VPA'",
+        "..."
+      ],
+      "test_scenarios": [
+        {"scenario": "Happy path collect", "objective": "Verify successful collect flow", "owner": "PSP Bank"}
+      ],
+      "policy_rules": [
+        "Per-transaction cap applies only to retail P2P",
+        "Merchant payments follow ..."
+      ],
+      "failure_scenarios": [
+        {"scenario": "Issuer timeout", "behavior": "Return Z9 Technical Decline; retry once after 500 ms"}
+      ],
+      "participant_obligations": {
+        "PSP Banks": ["Must implement ReqTransfer and RespTransfer contract", "..."],
+        "Issuer Banks": ["..."],
+        "Authority": ["..."]
+      },
+      "go_live_timeline": "2026-06-30 (or null if undecided)",
+      "supersedes_circular": "OC No. 123 / AUTH/NET/OC-XYZ (or null)"
+    }
+  # product_kit_agent: doc-section fragments (verbatim from the old inline prompts).
+  kit_user_journey_actors: '- End Customer (payer/payee)
+
+    - Participant organisations
+
+    - Acquiring Bank
+
+    - Issuing Bank
+
+    - The authority switch'
+  kit_faq_audience_3: '## SECTION 3: Bank (Acquirer / Issuer) FAQs
+
+
+    Generate 8–12 Q&A pairs covering:
+
+    - Impact on existing settlement processes
+
+    - Reconciliation changes
+
+    - Dispute / chargeback handling
+
+    - Go-live dependencies
+
+    - Regulatory reporting changes'
+  kit_test_identifiers: '- Test VPA format to use
+
+    - Test bank codes'
+  kit_boundary_examples: max amount, min amount, special characters in VPA
+  # ── Domain-genericity sweep: Phase B / agentic / certification prompt
+  # fragments. Every value below is VERBATIM the text previously hardcoded in
+  # the named module, so network prompt bytes are unchanged by the move
+  # (tests/core/test_prompt_snapshot.py verifies byte identity).
+  authority_full_name: the Network Authority
+  # agents/code_change.py — reuse bullets + coding-standards line.
+  code_change_reuse_notes: "   - Reuse existing utility classes (NetworkConstants, NetworkIdGenerator, NetworkResponseBuilder, etc.)\n   - Use existing entity patterns (NetworkRequest, NetworkResponse, etc.)\n   - Import from existing enums (ResponseCode, TransactionStatus, TransactionType)"
+  code_change_domain_notes: '- All network transaction amounts in paise (integer), never floating-point'
+  # agents/is_review.py — the domain half of the security-review rulebook.
+  infosec_domain_notes: |-
+    ## Network-Specific Security Standards
+    - No hardcoded secrets, API keys, passwords, or tokens anywhere in code
+    - No PII (name, phone, Aadhaar, PAN, account number) logged in plain text
+    - All external communication must enforce TLS (no http:// URLs for APIs)
+    - Input validation on ALL network transaction fields (VPA format, amount range, MPIN handling)
+    - Transaction amounts must be handled as integers (paise), never floating-point
+    - No sensitive data in URL query parameters
+    - Proper use of CSRF tokens for state-changing operations
+    - Secure random number generation (SecureRandom, not Random)
+  infosec_example_file: com/example/network/repository/TransactionRepo.java
+  infosec_example_param: vpaAddress
+  # prompts/agents/plan_contract/rule.md placeholders.
+  message_type_example: e.g. ReqXxx/RespXxx pairs
+  schema_field_example: e.g. a new field on ReqTransfer
+  # prompts/agents/code_change/*_output_directive.md placeholders.
+  code_path_example: src/main/java/com/example/network/core/entities/TransferRequest.java
+  repo_label_example_core: Network Core
+  repo_label_example_app: Network Switch Application
+  repo_path_example_core: src/main/java/com/example/network/core/entities/TransferRequest.java
+  repo_path_example_app: src/main/java/com/example/network/switch/handler/TransferHandler.java
+  # prompts/agents/agentic_subagents/standards.md + agentic subagent prefaces.
+  primary_txn_message: ReqTransfer
+  example_message_names: ReqTransfer/RespTransfer/ReqChkTxn
+  example_element_names: e.g. 'ReqTransfer', 'Payee', 'TxnAmount'
+  example_module_path: '''network-parent/api-gateway'''
+  central_switch_label: the switch
+  counterparty_examples: a bank/PSP/Authority counterpart
+  party_flow_participants_note: payer app / payer PSP / Authority switch / payee PSP / remitter
+    bank / beneficiary bank; many network flows involve only 2 or 3, say so rather than
+    padding to four
+  canonical_term_examples: '{"term":"credential type","value":"BIOAUTH"}, {"term":"credential
+    subType","value":"DS"}, {"term":"per-transaction limit","value":"₹5000"}'
+  # services/cert_signoff_doc.py — certificate option lists + boilerplate.
+  cert_type_of_bank_options: Direct Member|PSP|Coop / RRB
+  cert_certified_product_options: Network 1.0|Network 1.5|Network -Lite Autopay Issuer|NUUP 2.0|ACCOUNT+IFSC|REVERSAL
+    RC|AADHAAR|MOBILE+MMID|Network - Voucher (Creation + Redemption) - B2C
+  cert_spec_version: Network Interface Specification 2.0 TSD v1.42
+  cert_service_provider: Bank Inhouse development
+  # excel_testcase_engine defaults (display/scaffolding only; wire values in
+  # workbook_plan.py stay Bank/NPCI by documented contract).
+  default_apis: ReqTransfer, RespTransfer
+  workbook_role_sheets: Payer PSP, Payee PSP, Remitter, Beneficiary
+  summary_role_headers: Remitter, Beneficiary, Payer, Payee
+  scope_sheet_code_examples: "T27|Invalid UUID/UMN or timeout scenario in dummy corpus\nU09|Issuer or remitter timeout"
+  step_linter_role_phrases: Payer PSP|Payee PSP|Issuer Bank|Sponsor Bank|Remitter|Beneficiary|Network
+    / Authority|Sponsor|Issuer|Purchaser PSP|Delegate Payer|Primary Payer
+  step_linter_exempt_phrase: Network / Authority
+  cred_subtypes: NETWORKPIN / MPIN / OTP
+  # prompts/agents/agentic_subagents/standards.md — the domain's exact-money
+  # (or equivalent) coding rule.
+  domain_amount_rule: Monetary amounts are integer paise — never floating point.
+  # services/tc_store_sync.py — the AUTHORITY's own case-id prefix (partner
+  # role prefixes live in cert_vocabulary.role_prefixes; this one is kept out
+  # of that map because cert_catalogue treats role_prefixes values as PARTNER
+  # prefixes).
+  authority_case_prefix: MT_
+# Clarification gating + safe defaults (assumption_handler). Verbatim the
+# curated lists that used to live hardcoded in app/agents/assumption_handler.py,
+# so the network's blocking/assumable split is unchanged by moving them here. Anything
+# that changes compliance posture, API shape, or settlement behaviour blocks
+# the PM; the defaults are what the platform may safely assume (and surface)
+# for a non-critical gap.
+clarification_must_ask_keywords:
+# Mandate / recurring
+- mandate_type
+- recurrence
+- revocation
+- amount_cap
+- modification
+# Authentication
+- auth_method
+- auth_factor
+- biometric
+- device_binding
+- risk_threshold
+# Limits
+- transaction_limit
+- current_limit
+- new_limit
+- daily_cap
+- per_transaction
+- cooling_period
+# Cross-border
+- corridor
+- fx_rate
+- settlement_mode
+- partner_bank
+# Dispute
+- dispute_categor
+- resolution_sla
+- escalation
+- evidence
+# KYC
+- kyc_level
+- reverification
+- data_retention
+- v_cip
+# Credit
+- credit_product
+- sanction
+- settlement_cycle
+- fee_structure
+- repayment
+- credit_line
+# Lite / offline wallet
+- wallet_balance_cap
+- online_offline_sync
+# Go-live / regulatory
+- go_live
+- supersedes_circular
+- regulatory_approval
+# Generic pricing / commercials
+- pricing
+- revenue_model
+- commercial
+default_assumptions:
+  response_timeout: 30 seconds (standard network SLA)
+  retry_policy: 3 retries with exponential backoff
+  test_scenarios: Derived from blueprint happy-path + failure scenarios
+  participant_obligations: Follow existing network operating circular obligations
+  data_retention: 7 years per RBI IT framework
+participants:
+- key: authority
+  label: Authority
+  is_authority: true
+- key: psp
+  label: PSP Bank
+  is_authority: false
+- key: issuer
+  label: Issuer Bank
+  is_authority: false
+- key: beneficiary
+  label: Beneficiary Bank
+  is_authority: false
+- key: remitter
+  label: Remitter Bank
+  is_authority: false
+# Repository topology. The network spans TWO repos: the framework/XSD "core" and the
+# "app" (2.0) that consumes it. This is declared rather than assumed because the
+# rule used to live hardcoded in the SPA (AnalysisPanel/XSD "exactly one core and
+# one app"); the server-side gate never enforced it at all. With the client now
+# deriving its rule from here, an undeclared topology means "no constraint" — so
+# omitting this block would silently drop the network's two-repo guarantee, letting a run
+# start with only the app repo and no framework/XSD in the workspace.
+#
+# builds_first on core: verification_plan bootstraps a full-reactor `mvn install`
+# of every builds_first repo before per-module builds, so the app compiles against
+# the freshly built framework jar rather than a stale one from .m2.
+#
+# NOTE: these keys must match the `role` column on registered CodeRepo rows. A
+# repo with a NULL or different role is now rejected at run creation with a 400
+# naming the expected keys — fix it in Admin -> Code Indexing.
+repo_roles:
+- key: core
+  label: Core / framework (XSD)
+  required: true
+  multiple: false
+  builds_first: true
+- key: app
+  label: Application (2.0)
+  required: true
+  multiple: false
+  builds_first: false
+change_operations:
+- key: init
+  label: Init (transaction initiation)
+  description: ''
+- key: auth
+  label: Auth (authorisation flow)
+  description: ''
+- key: debit
+  label: Debit (debit leg on remitter side)
+  description: ''
+- key: credit
+  label: Credit (credit leg on beneficiary side)
+  description: ''
+- key: debit_reversal
+  label: Debit reversal (unwind a deemed debit)
+  description: ''
+- key: credit_reversal
+  label: Credit reversal (unwind a deemed credit)
+  description: ''
+risk_levels:
+- key: low
+  label: Low
+  description: Minor UI/copy change, no new fields, no money-movement change
+- key: standard
+  label: Standard
+  description: New fields or logic, existing money-movement flow
+- key: high
+  label: High
+  description: New money-movement flow, new fraud/security surface, or novel dispute path
+compliance_levels:
+- key: standard
+  label: Standard
+  description: No new regulatory requirement
+- key: RBI-mandated
+  label: RBI-mandated
+  description: Driven by a specific RBI circular or master direction
+- key: PMLA-touched
+  label: PMLA-touched
+  description: Anti-money-laundering, KYC uplift, or reporting-adjacent
+# Feature-classification buckets for retrieval steering (app/agents/taxonomy.py,
+# read via feature_taxonomy_of). Faithful transcription of the domain taxonomy dict
+# that used to live hardcoded in that module — same buckets, keywords,
+# required_fields and seed (analogue) queries, in the same order. The v1
+# scope-signal keys (certifying_parties, feature_operations, risk_profile,
+# compliance_sensitivity, scope_error_codes) stay REMOVED from required_fields:
+# they generated PM questions nothing reads (see tests/agents/
+# test_ambiguity_detector_v1.py). The first bucket is the keyword-fallback
+# default, so payment_initiation stays first.
+feature_taxonomy:
+- key: payment_initiation
+  label: Payment Initiation
+  keywords: [pay, payment, send money, p2p, p2m, push payment, intent, collect request, transfer, merchant payment]
+  required_fields: [payer_vpa, payee_vpa, amount, auth_method, transaction_limit, response_timeout]
+  seed_queries:
+  - network pay basic flow PSP to switch
+  - ReqTransfer RespTransfer field list
+  - intent vs collect request on the network
+  - merchant push payment flow
+- key: mandate_recurring
+  label: Mandate / Recurring / AutoPay
+  keywords: [mandate, recurring, subscription, autopay, auto pay, standing instruction, si, emandate, periodic debit]
+  required_fields: [mandate_type, recurrence_pattern, amount_cap, start_date, end_date, revocation_flow, modification_flow]
+  seed_queries:
+  - network AutoPay mandate creation
+  - emandate revocation flow
+  - recurring payment Authority circular
+  - mandate modification PSP
+- key: authentication_security
+  label: Authentication / Security
+  keywords: [authentication, auth, network pin, biometric, otp, device binding, 2fa, two factor, aadhaar, face id, fingerprint, passcode]
+  required_fields: [auth_factor, enrollment_flow, fallback_flow, revocation_flow, risk_threshold]
+  seed_queries:
+  - network PIN setup device binding
+  - biometric authentication on the network
+  - two factor authentication RBI
+  - Lite PIN-less authentication
+- key: lite_offline
+  label: Lite / Offline
+  keywords: [lite wallet, offline, low bandwidth, wallet balance, nfc, contactless, no internet]
+  required_fields: [wallet_balance_cap, online_offline_sync, per_transaction_cap, daily_cap, device_binding]
+  seed_queries:
+  - Lite wallet balance cap
+  - offline network transaction flow
+  - Lite device top-up
+  - NFC contactless network payment
+- key: limit_enhancement
+  label: Limit Enhancement / Cap Change
+  keywords: [limit, enhancement, cap, threshold, maximum, per transaction, daily limit, lakh, crore]
+  required_fields: [current_limit, new_limit, applicable_flow, regulatory_reference, effective_date]
+  seed_queries:
+  - network transaction limit enhancement circular
+  - per transaction limit change on the network
+  - daily limit customer category
+  - Authority limit increase mandate
+- key: dispute_grievance
+  label: Dispute / Grievance Redressal
+  keywords: [dispute, grievance, chargeback, refund, reversal, udir, complaint, resolution]
+  required_fields: [dispute_categories, resolution_sla, escalation_matrix, reversal_flow, evidence_requirements]
+  seed_queries:
+  - UDIR dispute flow on the network
+  - Authority chargeback reversal
+  - customer grievance redressal timeline
+  - dispute resolution SLA RBI
+- key: kyc_verification
+  label: KYC / Verification
+  keywords: [kyc, verification, pan, aadhaar, cibil, name match, v-cip, video kyc, onboarding]
+  required_fields: [kyc_level, document_types, verification_source, reverification_trigger, data_retention]
+  seed_queries:
+  - eKYC network onboarding flow
+  - V-CIP process RBI
+  - Aadhaar PAN verification PSP
+  - name match verification on the network
+- key: cross_border
+  label: Cross-Border / Inbound / Outbound
+  keywords: [cross border, international, nri, remittance, foreign, forex, inbound, outbound, swift]
+  required_fields: [corridor, fx_rate_source, settlement_mode, regulatory_approval, partner_banks]
+  seed_queries:
+  - network cross border inbound
+  - NRI remittance flow on the network
+  - Authority forex conversion
+  - network international corridor
+- key: credit_products
+  label: Credit on the network
+  keywords: [credit, card, rupay, loan, emi, credit line, overdraft, pre approved]
+  required_fields: [credit_product_type, sanction_flow, settlement_cycle, fee_structure, repayment_flow]
+  seed_queries:
+  - RuPay credit card linkage on the network
+  - pre-sanctioned credit line on the network
+  - EMI merchant flow on the network
+  - Authority credit card settlement
+- key: value_added_service
+  label: Value-Added Service (rewards, offers, analytics)
+  keywords: [rewards, cashback, offer, coupon, loyalty, analytics, insights, dashboard, notification]
+  required_fields: [service_type, eligibility_rules, event_trigger, monetization_model]
+  seed_queries:
+  - network rewards program flow
+  - merchant cashback eligibility
+  - loyalty points on the network
+  - transaction analytics PSP
+change_types:
+- key: new_feature
+  label: New network feature
+  artifacts:
+  - canvas
+  - brd
+  - tech_spec
+  - xsd
+  requires_certification: true
+  requires_publication: true
+- key: spec_amendment
+  label: Specification amendment
+  artifacts:
+  - brd
+  - tech_spec
+  requires_certification: true
+  requires_publication: true
+artifacts:
+- key: canvas
+  label: Product Canvas
+  renderer: markdown
+  blueprint_doc_type: canvas
+- key: brd
+  label: Business Requirement Document
+  renderer: docx
+  blueprint_doc_type: brd
+- key: tech_spec
+  label: Technical Specification
+  renderer: docx
+  blueprint_doc_type: tech_spec
+- key: xsd
+  label: XSD Schema
+  renderer: markdown
+  blueprint_doc_type: xsd
+cert_vocabulary:
+  role_scopes:
+    PAYER_PSP:
+    - ACQUIRER
+    PAYEE_PSP:
+    - ISSUER
+    REMITTER_BANK:
+    - ISSUER
+    BENEFICIARY_BANK:
+    - ISSUER
+  product_labels:
+  - - LITE
+    - Network -Lite Autopay Issuer
+  - - AUTOPAY
+    - Network -Lite Autopay Issuer
+  - - VOUCHER
+    - Network - Voucher (Creation + Redemption) - B2C
+  - - AADHAAR
+    - AADHAAR
+  - - REVERSAL
+    - REVERSAL RC
+  - - MMID
+    - MOBILE+MMID
+  role_prefixes:
+    PAYER_PSP: PR_
+    PAYEE_PSP: PE_
+    REMITTER_BANK: RE_
+    BENEFICIARY_BANK: BE_
+  role_labels:
+    PAYER_PSP: Payer PSP
+    PAYEE_PSP: Payee PSP
+    REMITTER_BANK: Remitter Bank
+    BENEFICIARY_BANK: Beneficiary Bank
+  role_test_data_fields:
+    PAYER_PSP:
+    - payer_vpa
+    - payer_account_number
+    - payer_ifsc
+    - payer_mobile
+    - mobile_number
+    PAYEE_PSP:
+    - payee_vpa
+    - payee_account_number
+    - payee_ifsc
+    - merchant_category_code
+    REMITTER_BANK:
+    - payer_vpa
+    - account_number
+    - ifsc
+    - account_type
+    - iin
+    BENEFICIARY_BANK:
+    - payee_vpa
+    - account_number
+    - ifsc
+    - account_type
+    - iin
+wire_format: xml
+# The shape of a network response code, for the "does this document actually name
+# codes?" document checks. Verbatim the literal that used to sit in
+# services/evaluation/deterministic.py and agents/document_validator.py, so
+# the network's verdicts are unchanged by moving it here.
+error_code_pattern: \b(?:U\d{1,3}|Z\d{1,2}|RB|XT|XD|YB|YC|YD|00)\b
+# The network certifies through the platform's pack-driven simulator when running
+# from this config pack. (The Python NetworkPack class also declares cert_agent/precert
+# harnesses, but the registry no longer loads Python packs — this key is what
+# makes certification reachable on a YAML-configured deployment.) The name
+# resolves through app/services/cert_harnesses.py at dispatch.
+certification_harness: sim_pack
+
+# The network distributes over A2A (the Python NetworkPack also wires this; the registry no
+# longer loads Python packs, so this key is what reaches the channel on a
+# YAML-configured deployment). Resolved via app/services/partner_channels.py.
+partner_channel: a2a
+
+# The shape of a network wire message NAME (ReqTransfer, RespBalEnq, the
+# synchronous Ack). One pattern for every consumer that scans prose/plans/schemas
+# for message tokens (api_registry_ingest, xsd_context, plan_files) — previously
+# three near-identical hardcoded regexes. A domain that declares none gets
+# "no messages found", never the network's convention by accident.
+message_name_pattern: \b(?:Req|Resp)[A-Z][A-Za-z0-9]+\b|\bAck\b
+
+# Wire message name -> cert-engine flow family. Verbatim the offline/baseline
+# `_API_TO_FLOW` table that lived in services/tc_store_sync.py; cert-agent's
+# live flow_registry still extends it at sync time. Empty for a domain means
+# "no baseline flows" — unmapped stubs surface as unknown_apis for the
+# operator instead of being guessed into a flow.
+message_flows:
+  ReqTransfer: PAY
+  ReqTransfer_Debit: PAY
+  ReqTransfer_Credit: PAY
+  RespTransfer: PAY
+  ReqCollect: COLLECT
+  RespCollect: COLLECT
+  ReqMandate: MANDATE
+  RespMandate: MANDATE
+  ReqValCust: VALCUST
+  RespValCust: VALCUST
+  ReqChkTxn: CHKTXN
+  RespChkTxn: CHKTXN
+  ReqRefund: REFUND
+  RespRefund: REFUND
+  ReqBalEnq: BALANCE
+  RespBalEnq: BALANCE
+  ReqMiniStmt: MINISTMT
+  RespMiniStmt: MINISTMT
+  ReqReversal: REVERSAL
+  RespReversal: REVERSAL
+
+# Heuristic FR-tagging regexes (services/brd_requirements.py). Stored as the
+# regexes themselves — verbatim the previous module constants — rather than
+# synthesized from labels, because synthesis could not reproduce the network's
+# hand-tuned negative lookaheads byte-for-byte. A pack that declares none
+# tags nothing.
+operation_patterns:
+  init: \b(initiat[eio]|reqtransfer|reqmandate|start[a-z]* (?:the )?(?:transaction|payment))\b
+  auth: \b(auth(?:oris|oriz)ation|reqauth|authenticat|network\s*pin|cred(?:ential)? block)\b
+  debit: \b(debit(?!ing|[- ]?reversal|[- ]?rollback)|debiting|remitter(?:[- ]?bank)?\s+debit|charge account)\b
+  credit: \b(credit(?!ing|[- ]?reversal|[- ]?rollback)|crediting|beneficiary\s+credit|payee\s+credit)\b
+  debit_reversal: \b(debit[- ]?reversal|reverse[a-z]* (?:the )?debit|refund the debit|debit rollback)\b
+  credit_reversal: \b(credit[- ]?reversal|reverse[a-z]* (?:the )?credit|refund the credit|credit rollback)\b
+  meta_query: \b(reqlist|reqhbt|reqrulechk|list of psp|list of keys|health\s*check|heartbeat)\b
+party_patterns:
+  PAYER_PSP: \b(payer\s+psp|payer[- ]?psp|initiating\s+psp)\b
+  PAYEE_PSP: \b(payee\s+psp|payee[- ]?psp|receiving\s+psp)\b
+  REMITTER_BANK: \b(remitter(?:[- ]?bank)?|issuer(?:[- ]?bank)?|remitting bank)\b
+  BENEFICIARY_BANK: \b(beneficiary(?:[- ]?bank)?|receiving bank)\b
+
+# Change operations that MOVE MONEY — an FR tagged with any of these is a
+# "financial" flow; everything else is "meta". A domain that declares none
+# classifies every flow as meta, which is a true statement about it.
+financial_operations:
+- debit
+- credit
+- debit_reversal
+- credit_reversal
+
+# Loose party spellings the BRD extractor may see -> canonical party keys.
+# Verbatim the alias map that lived in agents/brd_extractor.py.
+party_aliases:
+  ISSUER: REMITTER_BANK
+  ISSUER_BANK: REMITTER_BANK
+  REMITTER: REMITTER_BANK
+  BENEFICIARY: BENEFICIARY_BANK
+  PAYER: PAYER_PSP
+  PAYEE: PAYEE_PSP
+  PSP: PAYER_PSP
+  SWITCH: AUTHORITY
+
+# Short uppercase tokens that LOOK like network error codes but are ecosystem
+# acronyms — the union of the three stopword lists the excel_testcase_engine
+# carried (planner/validator/writer; planner alone also had PSP1 — unified
+# here, so validator/writer now exclude PSP1 too). Structural tokens
+# (REQ/RESP/NOTE/API/TSD/BRD/XSD) stay file-local: they are platform, not
+# domain, vocabulary.
+domain_acronyms:
+- PSP
+- PSP1
+- VPA
+- UMN
+- IFSC
+- CBS
+- FRM
+- OTP
+- MPIN
+- SMV
+
+# Known semantically-equivalent namespace spellings in the wild (first member
+# of each group is the de-facto production spelling). Verbatim the group that
+# lived in agents/xsd_namespace.py; reuse-matching sees through the split,
+# humans reconcile it.
+schema_namespaces:
+- - http://example.org/network/schema/
+  - http://www.example.net/network/schema/
