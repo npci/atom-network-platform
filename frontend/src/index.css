@@ -1,0 +1,139 @@
+@import "tailwindcss";
+
+/* ── Light theme (default) ─────────────────────────────── */
+:root,
+[data-theme="light"] {
+  --bg-base:        #ffffff;
+  --bg-elevated:    #f9f9f8;
+  --bg-card:        #f4f4f2;
+  --bg-input:       #ffffff;
+  --border:         #e5e5e3;
+  --border-subtle:  #ebebea;
+  --text-primary:   #1a1a18;
+  --text-secondary: #6b6b68;
+  --text-muted:     #9b9b97;
+  --accent:         #da7756;
+  --accent-hover:   #c96a47;
+  --accent-subtle:  rgba(218,119,86,0.10);
+  --success:        #2d8a5a;
+  --warning:        #c47d1a;
+  --danger:         #c43a3a;
+  --sidebar-bg:     #f4f4f2;
+  --sidebar-hover:  #eaeae8;
+  --sidebar-active: #e2e2e0;
+}
+
+/* ── Dark theme ─────────────────────────────────────────── */
+[data-theme="dark"] {
+  --bg-base:        #1a1a1a;
+  --bg-elevated:    #222222;
+  --bg-card:        #2a2a2a;
+  --bg-input:       #1e1e1e;
+  --border:         #333333;
+  --border-subtle:  #2c2c2c;
+  --text-primary:   #e8e8e6;
+  --text-secondary: #9a9a96;
+  --text-muted:     #666662;
+  --accent:         #da7756;
+  --accent-hover:   #c96a47;
+  --accent-subtle:  rgba(218,119,86,0.12);
+  --success:        #4caf7d;
+  --warning:        #e8a44a;
+  --danger:         #e06c6c;
+  --sidebar-bg:     #141414;
+  --sidebar-hover:  #1e1e1e;
+  --sidebar-active: #2a2a2a;
+}
+
+/* ── Spacing scale (used by cert-section primitives) ────── */
+:root {
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+}
+
+/* ── Base ───────────────────────────────────────────────── */
+* { box-sizing: border-box; }
+
+/* ── ID monospace utility (CR id, partner id, cert_run_id) */
+.id-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+
+/* ── Skeleton loader (for table loading states) ──────────── */
+@keyframes shimmer {
+  0%   { background-position: -200px 0; }
+  100% { background-position: calc(200px + 100%) 0; }
+}
+.skeleton {
+  display: inline-block;
+  background: linear-gradient(
+    90deg,
+    var(--bg-elevated) 0%,
+    var(--border) 50%,
+    var(--bg-elevated) 100%
+  );
+  background-size: 200px 100%;
+  background-repeat: no-repeat;
+  border-radius: 4px;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+body {
+  margin: 0;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  transition: background 0.2s, color 0.2s;
+}
+
+#root { min-height: 100vh; }
+
+/* ── Scrollbar ──────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* ── Focus ring ─────────────────────────────────────────── */
+*:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ── Spin animation ─────────────────────────────────────── */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+.spin { animation: spin 1s linear infinite; }
+
+/* ── Markdown content ───────────────────────────────────── */
+.md-content h1, .md-content h2, .md-content h3 {
+  color: var(--text-primary); font-weight: 600; margin: 1.2em 0 0.4em;
+}
+.md-content h2 { font-size: 15px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 4px; }
+.md-content h3 { font-size: 13px; }
+.md-content p  { margin: 0.5em 0; color: var(--text-secondary); font-size: 13px; line-height: 1.7; }
+.md-content ul, .md-content ol { padding-left: 20px; margin: 0.4em 0; }
+.md-content li { color: var(--text-secondary); font-size: 13px; line-height: 1.65; margin-bottom: 2px; }
+.md-content strong { color: var(--text-primary); font-weight: 600; }
+.md-content code {
+  background: var(--bg-card); padding: 1px 5px; border-radius: 4px;
+  font-size: 12px; font-family: monospace; color: var(--accent);
+}
+.md-content blockquote {
+  margin: 0.6em 0; padding: 8px 14px;
+  border-left: 3px solid var(--accent); background: var(--bg-card);
+  color: var(--text-muted); font-style: italic; border-radius: 0 4px 4px 0;
+}
+.research-report h2 { font-size: 16px; margin: 1.6em 0 0.6em; }
+.research-report p  { font-size: 14px; }
+.research-report li { font-size: 14px; }

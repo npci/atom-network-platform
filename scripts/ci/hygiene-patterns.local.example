@@ -1,0 +1,60 @@
+# Site-specific hygiene patterns — TEMPLATE.
+#
+# Copy to `scripts/ci/hygiene-patterns.local` (which is gitignored) and fill in
+# the values for your deployment. `scripts/ci/hygiene-check.sh` sources the
+# .local file when it exists and skips the corresponding rules when it does not.
+#
+# WHY THIS FILE IS SEPARATE, AND UNTRACKED
+#
+# The patterns below describe an organisation's internal network topology,
+# trademarks and runtime layout. Committing them to a public repository defeats
+# the rules that contain them: a gate that forbids `gateway.corp.example` has to
+# spell out `gateway.corp.example`, so publishing the gate publishes the host.
+# Keeping them out of the tree means the gate is useful to an operator without
+# the operator's estate being useful to a stranger reading the repo.
+#
+# The cost is that a rule with no configured pattern cannot fire. That is why
+# hygiene-check.sh prints `skip` and not `ok` for those rules — an unconfigured
+# check must never be mistaken for a passing one.
+#
+# THIS IS SHELL. It is sourced, so it can run arbitrary code; keep it to
+# assignments. Values are extended regular expressions (ERE) as understood by
+# `git grep -E`. Remember that git grep has NO word-boundary support: `\b`
+# matches nothing at all and will make your rule silently useless.
+
+# Internal DNS suffix. Anything resolvable only inside your network.
+#   INTERNAL_HOSTNAME_RE='[a-z0-9-]+\.corp\.internal'
+INTERNAL_HOSTNAME_RE=''
+
+# RFC1918 ranges you actually use. Do NOT use a pattern covering all of
+# 10.0.0.0/8 — version strings, timestamps and sample data collide with it
+# constantly and the noise gets the rule deleted. Name your real subnets.
+#   INTERNAL_SUBNET_RE='10\.(211|9)\.[0-9]{1,3}\.[0-9]{1,3}'
+INTERNAL_SUBNET_RE=''
+
+# Named corporate hosts: registries, LLM gateways, directory servers, ticketing.
+# Anchor on the LEADING label so a genuinely public site on the same domain
+# (a marketing page, or a domain used as an XML namespace URI — an identifier,
+# not an endpoint) does not trip the rule.
+#   INTERNAL_HOST_RE='(repo|gateway|directory|tickets)\.corp\.example\.com'
+INTERNAL_HOST_RE=''
+
+# Trademark assets that must never be committed. The MIT License conveys no
+# trademark rights, so a third party's mark was never yours to sublicense.
+# Bash array of git pathspec globs.
+#   TRADEMARK_GLOBS=('*acme_logo*' '*ACME_logo*' '*partner-logo*')
+TRADEMARK_GLOBS=()
+
+# Committed runtime stores — JSON/SQLite files holding real runs, real partner
+# configuration or real certification results. These look like fixtures and are
+# not. Bash array of git pathspec globs.
+#   RUNTIME_STORE_GLOBS=('agent/db/executions.json' 'agent/db/partner_configs.json')
+RUNTIME_STORE_GLOBS=()
+
+# Contributor names are derived from `git log` at runtime, so there is nothing
+# to configure for that rule to work. This is the escape hatch for the one case
+# it gets wrong: a contributor whose name is also an ordinary English word, or a
+# word that appears constantly in code. Alternation of whole names, matched
+# case-insensitively against the derived list only.
+#   CONTRIB_NAME_IGNORE='mark|frank|summer'
+CONTRIB_NAME_IGNORE=''

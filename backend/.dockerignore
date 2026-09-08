@@ -1,0 +1,22 @@
+.env
+.env.*
+# A live TOTP seed. It is kept out of git but was NOT kept out of here, so every
+# `docker build` copied it into the build context — and anything in the context
+# is readable from the daemon and recoverable from an intermediate layer, even
+# if no Dockerfile line ever mentions it.
+.demo_mfa_secret
+# Scratch SQLite databases from a developer's working tree.
+*.db
+*.sqlite
+*.sqlite3
+__pycache__/
+*.pyc
+.pytest_cache/
+.git/
+*.md
+logs/
+# Local dev virtualenvs — ~1.2GB; never belongs in the image, and sending it as
+# build context is what made `docker compose build` crawl/hang.
+venv/
+.venv/
+env/

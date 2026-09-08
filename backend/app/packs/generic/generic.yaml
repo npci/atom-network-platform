@@ -1,0 +1,89 @@
+key: generic
+version: "1.0"
+
+prompt_blocks:
+  hard_rules: |-
+    Write only requirements supported by the supplied change request, policy, and evidence.
+    State assumptions explicitly. Do not invent domain rules, actors, limits, error codes,
+    regulatory obligations, schemas, or protocol behavior. Keep changes backward-compatible
+    unless the approved request explicitly requires a breaking change.
+  api_design_principles: |-
+    Prefer reuse, then backward-compatible extension, then a new interface. Define ownership,
+    lifecycle, validation, failure behavior, idempotency, authorization, observability, and
+    rollout for every affected interface. Use the deployment's established naming conventions.
+  error_codes: ""
+  authority: the Authority
+  evidence_sources: authority policy and deployment-provided evidence
+  evidence_heading: Retrieved evidence
+  citation_example: Participants must acknowledge a published change within the configured window [S2].
+  reference_kind: policy document
+  claim_kinds: policy obligation, interface behavior, compatibility, or service-level claim
+  document_register: governed specification document
+  platform_name: the Change Management Platform
+  domain_name: the configured ecosystem
+  ecosystem_description: The platform coordinates governed specification changes between an authority and participating organizations.
+  ecosystem_actors: the Authority, participating organizations, operators, and end users
+  compliance_note: Apply only the policies and compliance obligations supplied by this deployment.
+  regulatory_body: the applicable oversight body
+  market_comparables: comparable platforms and standards relevant to the configured ecosystem
+  market_context: the configured ecosystem context
+  product_operating_extra: ""
+  regulatory_claim_label: applicable policy or regulation
+  numbered_citation_example: The rollout window is defined by the approved policy [3].
+  corpus_label: configured knowledge corpus
+  test_case_scope: configured specification
+  initiator_authority_label: Authority
+  initiator_participant_label: Participant
+  role_as_label: Participant as
+
+participants:
+  - {key: authority, label: Authority, is_authority: true}
+  - {key: participant, label: Participant}
+
+repo_roles:
+  - key: core
+    label: Core / shared components
+    required: false
+    builds_first: true
+  - key: application
+    label: Application / integration components
+    required: false
+
+change_operations:
+  - {key: create, label: Create or introduce capability}
+  - {key: update, label: Update existing capability}
+  - {key: deprecate, label: Deprecate or retire capability}
+
+risk_levels:
+  - {key: low, label: Low, description: Localized compatible change with limited operational impact}
+  - {key: standard, label: Standard, description: Cross-component change using established patterns}
+  - {key: high, label: High, description: New trust boundary, sensitive data, major migration, or breaking behavior}
+
+compliance_levels:
+  - {key: standard, label: Standard, description: No deployment-specific obligation identified}
+  - {key: policy_mandated, label: Policy-mandated, description: Required by an applicable policy or governing body}
+  - {key: sensitive_data, label: Sensitive-data impact, description: Personal, confidential, regulated, or security-sensitive data is affected}
+
+change_types:
+  - key: new_feature
+    label: New capability
+    artifacts: [canvas, brd, tech_spec, xsd]
+    requires_certification: false
+    requires_publication: true
+  - key: spec_amendment
+    label: Specification amendment
+    artifacts: [brd, tech_spec]
+    requires_certification: false
+    requires_publication: true
+
+artifacts:
+  - {key: canvas, label: Product Canvas, renderer: markdown, blueprint_doc_type: canvas}
+  - {key: brd, label: Business Requirement Document, renderer: docx, blueprint_doc_type: brd}
+  - {key: tech_spec, label: Technical Specification, renderer: docx, blueprint_doc_type: tech_spec}
+  - {key: xsd, label: Schema Definition, renderer: markdown, blueprint_doc_type: xsd}
+
+combination_rules: []
+clarification_must_ask_keywords: []
+default_assumptions: {}
+feature_taxonomy: []
+cert_vocabulary: {}

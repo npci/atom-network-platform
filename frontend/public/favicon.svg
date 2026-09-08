@@ -1,0 +1,22 @@
+<!--
+  Deliberately WORDMARK-FREE. This mark is rendered in every browser tab of
+  every deployment, so it must not spell out any one organisation's name and
+  must not carry any one organisation's palette. It is a three-node graph in
+  neutral slate — the platform is a network of agents, whatever the domain.
+
+  A deployment that wants its own icon sets VITE_BRAND_FAVICON_URL (see
+  src/brand.js) rather than editing this file.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="7" fill="#2F3540"/>
+  <g stroke="#C9D1D9" stroke-width="2" stroke-linecap="round">
+    <path d="M16 10 L9 22"/>
+    <path d="M16 10 L23 22"/>
+    <path d="M9 22 L23 22"/>
+  </g>
+  <g fill="#C9D1D9">
+    <circle cx="16" cy="10" r="3.6"/>
+    <circle cx="9"  cy="22" r="3.6"/>
+    <circle cx="23" cy="22" r="3.6"/>
+  </g>
+</svg>

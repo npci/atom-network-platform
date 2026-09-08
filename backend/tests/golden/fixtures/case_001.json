@@ -1,0 +1,36 @@
+{
+  "case_id": "case_001",
+  "doc_type": "canvas",
+  "title": "Wallet auto-reload threshold",
+  "prompt": "Allow a stored-value wallet to reload automatically when its balance falls below a user-configured threshold, using a pre-registered mandate so no PIN is required at reload time.",
+  "note": "Captured from the real canvas agent on 2026-08-10 (claude-sonnet-5). The prompt is SYNTHETIC \u2014 an invented feature, no real change request, no customer or institution data \u2014 so this fixture is safe to publish.",
+  "domain_terms": [
+    "mandate",
+    "threshold",
+    "reload amount",
+    [
+      "daily cap",
+      "per-day cap",
+      "daily limit",
+      "mandate cap"
+    ]
+  ],
+  "thresholds": {
+    "structural_min": 0.95,
+    "floor_note": "Recorded from the first accepted real capture (2026-08-10, claude-sonnet-5), which scored 1.000. Set to 0.95, not 1.000: the floor is applied to FUTURE captures, whose wording will vary, and a floor of 1.000 would fail on drift rather than on quality loss. Ratchet upward only with evidence."
+  },
+  "generation": {
+    "artifact": "canvas",
+    "model_pinned": "claude-sonnet-5",
+    "inputs": {
+      "enriched_prompt": "Allow a stored-value wallet to reload automatically when its balance falls below a user-configured threshold, using a pre-registered mandate so no PIN is required at reload time.",
+      "research_report": "(none \u2014 synthetic case; a real case carries the research artifact)",
+      "instruction": "Generate the product canvas for this feature."
+    }
+  },
+  "judge": {
+    "model_pinned": "<TODO: pin the judge model before recording semantic floors>",
+    "semantic_min": null
+  },
+  "terms_note": "'device binding' and the technical/business decline taxonomy were dropped on 2026-08-10: they are TSD-level concerns, not product-canvas ones. The canvas covers fraud risk and decline RATES, which is the canvas-level treatment. Decision recorded rather than silently lowering the floor."
+}

@@ -1,0 +1,3 @@
+
+
+GROUND SHARED STATE AND CODES IN THE REAL PRODUCER. (1) When your change READS a value by a string key from a shared store — a Redis hash, a map, a cache, a record — INCLUDING a key written by another file in this SAME change, confirm the producer writes that EXACT key. A key nothing writes returns null/0/default and silently sends a branch the wrong way. (2) When the plan or spec declares response/error codes, EMIT each on its trigger path as the LITERAL code (e.g. return "YA" when the share-sum check fails) — never a placeholder, the first characters of a message, or a code the reader never actually receives.

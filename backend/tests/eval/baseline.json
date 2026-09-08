@@ -1,0 +1,10 @@
+{
+  "metrics": {
+    "cases": 3,
+    "recall_at_5": 1.0,
+    "recall_at_10": 1.0,
+    "mrr": 0.75,
+    "citation_coverage": 1.0
+  },
+  "captured_at": "2026-04-23T10:12:40.084650+00:00"
+}

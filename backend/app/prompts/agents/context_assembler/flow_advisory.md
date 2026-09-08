@@ -1,0 +1,1 @@
+[flow map — LOW-AUTHORITY ORIENTATION, NOT a source of truth: generated at index time, so it can be stale, wrong, or INCOMPLETE. Verify every claim against the code (grep/read_file), and actively look for flows NOT listed here — absence from this map does NOT mean a flow doesn't exist in the code.]

@@ -1,0 +1,146 @@
+# Build and test gate.
+#
+# The secret and hygiene gate lives in secret-scan.yml. This workflow covers the
+# build, the wire-contract drift check, and the test suite.
+#
+# Blocking status is set per job from a MEASURED baseline rather than by
+# optimism. Where a job is advisory, the comment says what the baseline is and
+# what has to be true to flip it — an advisory gate with no exit condition
+# becomes permanent.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  # ── The cheapest job, and the one with the highest value per second ─────────
+  #
+  # BLOCKING. protocol.py, hmac_signer.py and executor_base.py are GENERATED
+  # into backend/app/a2a_common/ from packages/a2a-core/. In August 2026 all
+  # three copies had diverged — the generated copy was 127 lines AHEAD of its
+  # own canonical source, because two teams hardened the shared file locally
+  # instead of upstream. Running the sync would have destroyed one side's work.
+  #
+  # It went unnoticed because MANIFEST listed destination directories that no
+  # longer existed, so the script aborted before reaching protocol.py and the
+  # check silently stopped covering anything. This job is the guard that would
+  # have caught it on the first push.
+  a2a-core-drift:
+    name: a2a-core drift check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Vendored wire code matches its canonical source
+        run: bash scripts/ci/sync-a2a-core.sh --check
+
+  frontend:
+    name: frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      # ADVISORY. eslint.config.js imports eslint-plugin-react, which is not in
+      # package.json — `npm run lint` exits 2 on a module-resolution error
+      # before linting a single file. That is a dependency bug, not a code-style
+      # backlog. Flip to blocking in the commit that adds the missing plugin.
+      - name: Lint (advisory — missing eslint-plugin-react)
+        continue-on-error: true
+        run: npm run lint
+        working-directory: frontend
+      # BLOCKING. `vite build` is the only type/build check this app has — there
+      # is no frontend unit-test runner — and it is a real gate: a bad import or
+      # a renamed asset fails exactly here. It passes today.
+      - name: Build
+        run: npm run build
+        working-directory: frontend
+
+  backend-tests:
+    name: backend tests
+    runs-on: ubuntu-latest
+    # ADVISORY, with a measured baseline.
+    #
+    # At 73d0622 the suite is 3563 passed / 17 failed / 1 error. Every one of
+    # those failures predates the CI work — verified by running the same suite
+    # at c1bb78d and diffing the failure sets, which are identical. They are
+    # genuine but pre-existing: a prompt-snapshot drift, several orchestrator
+    # continuation tests, and a registry parity sweep.
+    #
+    # FLIP TO BLOCKING when that list reaches zero. Do not flip it by
+    # deselecting the 17 — a suite with hidden exclusions is worse than an
+    # advisory one, because it looks green.
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: atom_user
+          POSTGRES_PASSWORD: ci_password
+          POSTGRES_DB: atom_cm_db
+        options: >-
+          --health-cmd pg_isready --health-interval 10s
+          --health-timeout 5s --health-retries 5
+        ports: ['5432:5432']
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 10s
+          --health-timeout 5s --health-retries 5
+        ports: ['6379:6379']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      # The backend image is multi-GB: requirements.<arch>.lock still carries
+      # torch and its NVIDIA wheels. A stock runner has ~14 GB free, and loading
+      # the image alongside the build cache exceeds it. Reclaim toolchains this
+      # build never uses.
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android \
+                      /usr/local/share/boost "${AGENT_TOOLSDIRECTORY:-}" || true
+          df -h / | tail -1
+      # Build rather than pip-install: the lock is hash-pinned and slow to
+      # resolve from scratch, and building keeps tests and app source at the
+      # SAME commit — backend/tests/ is baked into the image, not mounted, so a
+      # mismatch here would silently test the wrong thing.
+      - name: Build backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          load: true
+          tags: atom-backend:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Run pytest (advisory — 17 known pre-existing failures)
+        continue-on-error: true
+        run: |
+          docker run --rm --network host \
+            -e SECRET_KEY=ci-secret-key-at-least-32-characters \
+            -e DATABASE_URL=postgresql://atom_user:ci_password@localhost:5432/atom_cm_db \
+            -e REDIS_URL=redis://localhost:6379/0 \
+            atom-backend:ci python -m pytest tests -q --no-header
+
+  dependency-audit:
+    name: dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install pip-audit==2.7.3
+      # ADVISORY. pip-audit reports transitive advisories that a given PR has no
+      # way to fix, so blocking here would train people to ignore it. The SBOM
+      # tooling in scripts/ci/ is the tracked path for triaging these.
+      - name: Audit backend requirements (advisory)
+        continue-on-error: true
+        run: pip-audit -r backend/requirements.txt --desc

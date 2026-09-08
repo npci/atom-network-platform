@@ -1,0 +1,98 @@
+# ============================================================================
+# Backend — Production Dockerfile (air-gapped / private registry)
+#
+# Registry host is a BUILD ARG, not a baked-in hostname, so this file works
+# against any internal Nexus/Artifactory/Harbor without editing it.
+#
+# SETUP (one-time, on a machine WITH internet):
+#   1. Build base image:
+#      docker build -f Dockerfile.base --build-arg REGISTRY=<your-registry> \
+#        -t <your-registry>/python-base:3.12 .
+#   2. Push it:
+#      docker push <your-registry>/python-base:3.12
+#
+# BUILD (on the air-gapped machine):
+#   docker build -f Dockerfile.prod \
+#     --build-arg REGISTRY=<your-registry> \
+#     --build-arg PIP_INDEX_URL=https://<your-registry>/pypi-proxy/simple/ \
+#     -t cmp-backend:prod .
+#
+# Prerequisites on the registry:
+#   - Docker hosted repo (for the pre-built base image)
+#   - PyPI proxy
+#
+# NOTE: PIP_TRUSTED_HOST exists for registries served over plain HTTP. Prefer
+# HTTPS — a plain-HTTP index with --trusted-host allows package injection by
+# anyone on the build network.
+# ============================================================================
+
+ARG REGISTRY=docker.io
+ARG PYTHON_BASE_IMAGE=${REGISTRY}/python-base:3.12
+
+# Pre-built base image with gcc, libpq, cairo, pango, git etc.
+# No apt-get needed — all system deps already installed
+FROM ${PYTHON_BASE_IMAGE}
+
+WORKDIR /app
+
+# Unbuffered stdout/stderr. Python BLOCK-buffers stdout when it is a pipe (as it
+# always is under Docker) but line-buffers stderr, so without this the INFO half
+# of the console severity split (app/core/log_buffer.py) would reach
+# `docker compose logs -f` in delayed ~4-8 KB bursts while warnings appeared
+# immediately — looking like lag and out-of-order logging.
+ENV PYTHONUNBUFFERED=1
+
+ARG PIP_INDEX_URL=https://pypi.org/simple/
+ARG PIP_TRUSTED_HOST=""
+
+# Python packages — only needs the PyPI proxy.
+#
+# Installed from the per-arch HASH LOCK with --require-hashes, matching
+# Dockerfile (dev). This image previously installed from requirements.txt, which
+# pins versions but NOT content — so the supply-chain control (SEC-3) existed
+# only for the image that never ships. A compromised or substituted wheel on the
+# proxy would have been accepted here and rejected in dev, which is backwards.
+#
+# Requires BuildKit for TARGETARCH (docker buildx, or DOCKER_BUILDKIT=1). The
+# legacy builder does not set it and the build fails loudly rather than silently
+# falling back to unverified installs.
+ARG TARGETARCH
+COPY requirements.txt requirements.*.lock ./
+RUN test -n "$TARGETARCH" || { \
+        echo "ERROR: TARGETARCH is empty. This build requires BuildKit (docker buildx," >&2; \
+        echo "       or DOCKER_BUILDKIT=1) — the legacy builder does not set it." >&2; \
+        exit 1; }; \
+    test -f "requirements.${TARGETARCH}.lock" || { \
+        echo "ERROR: no lockfile for TARGETARCH=${TARGETARCH}. Generate" >&2; \
+        echo "       requirements.${TARGETARCH}.lock the same way as the existing ones." >&2; \
+        exit 1; }; \
+    pip install --no-cache-dir \
+        --index-url "${PIP_INDEX_URL}" \
+        ${PIP_TRUSTED_HOST:+--trusted-host "${PIP_TRUSTED_HOST}"} \
+        --timeout 600 \
+        --retries 10 \
+        --require-hashes \
+        -r "requirements.${TARGETARCH}.lock"
+
+COPY . .
+
+# Drop privileges. This image runs the backend, all three celery workers and
+# beat — and those execute agentic subprocesses and Maven builds, so root here
+# meant arbitrary build output ran as root in the container. The dev image has
+# dropped to appuser since it was written; a comment there assumed "prod runs
+# natively as a real user", which stopped being true once docker-compose.prod.yml
+# started building this file.
+#
+# Maven needs a real HOME with a writable local repo, so the m2_cache volume in
+# docker-compose.prod.yml mounts at /home/appuser/.m2 (it was /root/.m2) — the
+# two must move together or `mvn` aborts with LocalRepositoryNotAccessible.
+#
+# OPERATOR NOTE: the ./artifacts, ./logs and ./knowledge_base bind mounts must be
+# writable by appuser (uid 1000) on the host — `chown -R 1000:1000` them once.
+RUN adduser --disabled-password --gecos "" appuser \
+ && chown -R appuser /app \
+ && mkdir -p /home/appuser/.m2 \
+ && chown -R appuser /home/appuser
+USER appuser
+
+EXPOSE 8000

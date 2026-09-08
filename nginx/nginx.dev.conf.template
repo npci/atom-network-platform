@@ -1,0 +1,175 @@
+# TRIMMED to the authority + partner pair.
+# The recovered original came from a larger multi-project compose and declared
+# upstreams for certsim / apisim / precert / partnersim / partneragent, none of
+# which run here. nginx resolves every upstream AT STARTUP, so a single
+# unresolvable name is fatal to the whole proxy, not just to its own route --
+# the container died on 'host not found in upstream "apisim_frontend:80"'.
+# Full original preserved alongside as nginx.dev.conf.template.full-multistack.
+#
+# ═══════════════════════════════════════════════════════════════════════════
+# Authority A2A Platform — outer nginx (DEV / local-compose variant)
+#
+# Context paths are injected at startup via envsubst:
+#   $AUTHORITY_CONTEXT     (default: a2a)
+#   $PARTNER_CONTEXT  (default: a2a-partner)
+#   $CERTSIM_CONTEXT  (default: a2a-certsim)
+#   $APISIM_CONTEXT   (default: a2a-apisim)
+#   $PARTNERAGENT_CONTEXT (default: a2a-bankagent)
+#   $PARTNERSIM_CONTEXT   (default: a2a-banksim)
+#
+# Those last two default path segments are wire-pinned deployed URLs — partner
+# installs already call them, so only the setting name was renamed.
+#
+# DO NOT use this in production — no HSTS, no TLS, no mTLS, no rate
+# limit zone. The hardening lives entirely in nginx.conf.
+# ═══════════════════════════════════════════════════════════════════════════
+
+server_tokens off;
+
+upstream authority_backend     { server backend:8000; }
+upstream authority_frontend    { server frontend:80; }
+# The partner platform is a SEPARATE compose stack. This file must not declare
+# `upstream` blocks for it: nginx resolves every upstream host AT STARTUP, so a
+# partner that is not attached is fatal to the WHOLE proxy — the authority UI
+# and API go down with it. That is the exact failure the trim above was meant to
+# prevent, and it recurred because these two survived it.
+#
+# Instead the partner routes resolve per-request through Docker's embedded DNS
+# (127.0.0.11) using a variable in `proxy_pass`. Partner absent => 502 on the
+# partner routes only; everything else keeps serving.
+resolver 127.0.0.11 valid=10s ipv6=off;
+resolver_timeout 5s;
+server {
+    listen 80 default_server;
+    server_name _;
+    client_max_body_size 50M;
+
+    location = / { return 302 /${AUTHORITY_CONTEXT}/; }
+
+    # ── A2A protocol surface — exposed at ROOT ────────────────────────────
+    # These are partner-facing protocol endpoints. NOT parameterized —
+    # they are part of the A2A API contract that partners call.
+    location /.well-known/ {
+        proxy_pass http://authority_backend;
+        proxy_set_header Host       $host;
+        proxy_set_header X-Real-IP  $remote_addr;
+    }
+
+    location /a2a-rpc/ {
+        proxy_pass http://authority_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Host             $host;
+        proxy_set_header X-Real-IP        $remote_addr;
+        proxy_set_header X-Forwarded-For  $proxy_add_x_forwarded_for;
+        proxy_read_timeout 300s;
+    }
+
+    location /api/a2a/ {
+        proxy_pass http://authority_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Host             $host;
+        proxy_set_header X-Real-IP        $remote_addr;
+        proxy_set_header X-Forwarded-For  $proxy_add_x_forwarded_for;
+        proxy_read_timeout 300s;
+    }
+
+    # ── Authority Platform — /${AUTHORITY_CONTEXT}/* ────────────────────────────────
+    location /${AUTHORITY_CONTEXT}/.well-known/ {
+        rewrite ^/${AUTHORITY_CONTEXT}/(.*)$ /$1 break;
+        proxy_pass http://authority_backend;
+        proxy_set_header Host       $host;
+        proxy_set_header X-Real-IP  $remote_addr;
+    }
+
+    location /${AUTHORITY_CONTEXT}/api/ws/ {
+        rewrite ^/${AUTHORITY_CONTEXT}/(.*)$ /$1 break;
+        proxy_pass http://authority_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade    $http_upgrade;
+        proxy_set_header Connection "Upgrade";
+        proxy_set_header Host       $host;
+        proxy_set_header X-Real-IP  $remote_addr;
+        proxy_read_timeout 86400s;
+    }
+
+    location /${AUTHORITY_CONTEXT}/api/logs/stream {
+        rewrite ^/${AUTHORITY_CONTEXT}/(.*)$ /$1 break;
+        proxy_pass http://authority_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Host       $host;
+        proxy_set_header X-Real-IP  $remote_addr;
+        proxy_set_header Connection '';
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 3600s;
+        chunked_transfer_encoding on;
+    }
+
+    location /${AUTHORITY_CONTEXT}/api/ {
+        rewrite ^/${AUTHORITY_CONTEXT}/(.*)$ /$1 break;
+        proxy_pass http://authority_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Host             $host;
+        proxy_set_header X-Real-IP        $remote_addr;
+        proxy_set_header X-Forwarded-For  $proxy_add_x_forwarded_for;
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+    }
+
+    location /${AUTHORITY_CONTEXT}/ {
+        proxy_pass http://authority_frontend;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade    $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host       $host;
+        proxy_cache_bypass          $http_upgrade;
+
+        # NO sub_filter HERE, DELIBERATELY. The <base href> that anchors the
+        # SPA's relative asset URLs is injected by the frontend IMAGE, in
+        # frontend/nginx.conf.template — see the long comment there for what
+        # breaks without it and how to verify.
+        #
+        # It used to be done at this hop instead, which fixed the deployed
+        # stack and left the image serving a blank page to anyone running it
+        # directly. Adding it back here would produce TWO <base> tags: the
+        # first wins in every browser, but the duplicate is exactly the kind of
+        # thing that survives review and confuses the next debugging session.
+        #
+        # `proxy_set_header Accept-Encoding ""` went with it: it existed only so
+        # sub_filter could see an uncompressed body. If any rewriting is ever
+        # reintroduced at this hop, it has to come back too.
+    }
+
+    # ── Partner Platform — /${PARTNER_CONTEXT}/* ─────────────────────────
+    location /${PARTNER_CONTEXT}/api/ {
+        set $partner_api partner_backend:8001;
+        rewrite ^/${PARTNER_CONTEXT}/(.*)$ /$1 break;
+        proxy_pass http://$partner_api;
+        proxy_http_version 1.1;
+        proxy_set_header Host             $host;
+        proxy_set_header X-Real-IP        $remote_addr;
+        proxy_set_header X-Forwarded-For  $proxy_add_x_forwarded_for;
+        proxy_read_timeout 300s;
+    }
+
+    location /${PARTNER_CONTEXT}/.well-known/ {
+        set $partner_wk partner_backend:8001;
+        rewrite ^/${PARTNER_CONTEXT}/(.*)$ /$1 break;
+        proxy_pass http://$partner_wk;
+        proxy_set_header Host  $host;
+    }
+
+    location /${PARTNER_CONTEXT}/ {
+        set $partner_ui partner_frontend:80;
+        proxy_pass http://$partner_ui;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade    $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host       $host;
+        proxy_cache_bypass          $http_upgrade;
+    }
+
+    # ── Cert Simulator UI — /${CERTSIM_CONTEXT}/* ────────────────────────
+    # Cert-agent requires auth on every endpoint. The UI is an internal
+    # tool with no login page, so nginx injects the internal token on
+}

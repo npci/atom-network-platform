@@ -1,0 +1,10 @@
+{
+  "_note": "Initial seed baseline — all zeros. Refresh after first real agent run by invoking `make eval-code-change OUTPUTS=<dir> REFRESH=1`.",
+  "n_cases": 0,
+  "parse_success_rate": 0.0,
+  "macro_precision": 0.0,
+  "macro_recall": 0.0,
+  "macro_f1": 0.0,
+  "macro_contains_score": 0.0,
+  "total_forbidden_violations": 0
+}
