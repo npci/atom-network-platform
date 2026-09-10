@@ -58,9 +58,9 @@ Current maintainers:
 
 | Name | GitHub | Areas |
 |---|---|---|
-| AtOM maintainers | `@npci/atom-maintainers` | Overall; domain-pack contract, A2A |
+| AtOM maintainers | `opensource[@]npci.org.in` | Overall; domain-pack contract, A2A |
 
-`@npci/atom-maintainers` is a shared team, not an individual. It is the same
+`opensource[@]npci.org.in` is a shared team, not an individual. It is the same
 handle [CODEOWNERS](CODEOWNERS) routes every review to, so the two documents
 cannot disagree about who owns the code — an earlier version of this table named
 a personal account that appeared nowhere in CODEOWNERS, which meant the stated

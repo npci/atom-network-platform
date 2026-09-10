@@ -10,33 +10,33 @@
 #   GitHub  — https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
 
 # ── Default owner (catches everything not matched below) ──────────────────────
-*                               @npci/atom-maintainers
+*                               opensource[@]npci.org.in
 
 # ── Governance & legal ────────────────────────────────────────────────────────
-LICENSE                         @npci/atom-maintainers
-NOTICE                          @npci/atom-maintainers
-SECURITY.md                     @npci/atom-maintainers
-CODE_OF_CONDUCT.md              @npci/atom-maintainers
-CONTRIBUTING.md                 @npci/atom-maintainers
-CODEOWNERS                      @npci/atom-maintainers
+LICENSE                         opensource[@]npci.org.in
+NOTICE                          opensource[@]npci.org.in
+SECURITY.md                     opensource[@]npci.org.in
+CODE_OF_CONDUCT.md              opensource[@]npci.org.in
+CONTRIBUTING.md                 opensource[@]npci.org.in
+CODEOWNERS                      opensource[@]npci.org.in
 
 # ── Documentation ─────────────────────────────────────────────────────────────
-README.md                       @npci/atom-maintainers
-wiki/                           @npci/atom-maintainers
+README.md                       opensource[@]npci.org.in
+wiki/                           opensource[@]npci.org.in
 
 # ── Core platform (backend) ───────────────────────────────────────────────────
-backend/app/core/               @npci/atom-maintainers
-backend/app/api/                @npci/atom-maintainers
-backend/app/models/             @npci/atom-maintainers
+backend/app/core/               opensource[@]npci.org.in
+backend/app/api/                opensource[@]npci.org.in
+backend/app/models/             opensource[@]npci.org.in
 
 # ── A2A protocol & partner integration ────────────────────────────────────────
-backend/app/a2a_common/         @npci/atom-maintainers
-backend/app/services/a2a_client.py @npci/atom-maintainers
+backend/app/a2a_common/         opensource[@]npci.org.in
+backend/app/services/a2a_client.py opensource[@]npci.org.in
 
 # ── Agentic pipeline ──────────────────────────────────────────────────────────
-backend/app/agents/             @npci/atom-maintainers
-backend/app/rag/                @npci/atom-maintainers
+backend/app/agents/             opensource[@]npci.org.in
+backend/app/rag/                opensource[@]npci.org.in
 
 # ── Frontend ──────────────────────────────────────────────────────────────────
-frontend/src/                   @npci/atom-maintainers
+frontend/src/                   opensource[@]npci.org.in
 
