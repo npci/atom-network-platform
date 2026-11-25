@@ -9,7 +9,7 @@
 
 ## Internal
 
-> Contributors from National Payments Corporation of India (NPCI)
+> Contributors from National Payments Corporation of India (NPCI).
 
 | #   | Name                              |
 | --- | --------------------------------- |
